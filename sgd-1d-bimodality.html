@@ -746,15 +746,16 @@ function runAll(){
     const Hcur = harmonicH(p.law === 'deterministic' ? 'deterministic' : p.law, p.mu, edges.vEff, p.eta, p.seed+5);
 
     $('edges').innerHTML =
-      `<span class="chip ms">η<sub>MS</sub> = <b>${fmt(edges.eMS)}</b></span>` +
-      `<span class="chip det">2/μ = <b>${fmt(edges.eDet)}</b></span>` +
-      `<span class="chip lyap">η<sub>L</sub> = <b>${fmt(edges.eL)}</b></span>` +
-      `<span class="chip harm">η̂<sub>H</sub> = <b>${fmt(edges.eH)}</b></span>` +
-      `<span class="chip">H(η)=E|1−ηh|⁻¹ ≈ <b>${fmt(Hcur,2)}</b></span>`;
+      `<span class="chip ms">$\\eta_{\\mathrm{MS}}$ = <b>${fmt(edges.eMS)}</b></span>` +
+      `<span class="chip det">$2/\\mu$ = <b>${fmt(edges.eDet)}</b></span>` +
+      `<span class="chip lyap">$\\eta_L$ = <b>${fmt(edges.eL)}</b></span>` +
+      `<span class="chip harm">$\\hat\\eta_H$ = <b>${fmt(edges.eH)}</b></span>` +
+      `<span class="chip">$H(\\eta)\\approx$ <b>${fmt(Hcur,2)}</b></span>`;
 
     const [cls, lab] = regimePill(p.eta, edges);
     $('regime').innerHTML = `<span class="pill ${cls}">${lab}</span>`;
     typesetMath($('edges'));
+    typesetMath($('regime'));
 
     // main simulation
     const sim = runCloud(p);
