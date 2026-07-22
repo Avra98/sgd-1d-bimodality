@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="color-scheme" content="light dark">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>1-D SGD · iterate shape beyond stochastic stability</title>
+<style>
+  :root{
+    --bg:#f9f9f7; --surface:#fcfcfb; --ink:#0b0b0b; --ink2:#52514e; --muted:#898781;
+    --grid:#e1e0d9; --axis:#c3c2b7; --border:rgba(11,11,11,.10);
+    --accent:#2a78d6; --sharp:#4a3aa7; --sharpmid:#1baf7a;
+    --zero:#008300; --unst:#e34948; --now:#eb6834;
+    --ms:#2a78d6; --lyap:#eda100; --harm:#e34948; --det:#008300;
+    --chipbg:rgba(11,11,11,.045);
+    --good:#0ca30c; --warn:#c98500; --crit:#d03b3b;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0d0d0d; --surface:#1a1a19; --ink:#ffffff; --ink2:#c3c2b7; --muted:#898781;
+      --grid:#2c2c2a; --axis:#383835; --border:rgba(255,255,255,.10);
+      --accent:#3987e5; --sharp:#9085e9; --sharpmid:#199e70;
+      --zero:#31a831; --unst:#e66767; --now:#e0683a;
+      --ms:#3987e5; --lyap:#c98500; --harm:#e05252; --det:#31a831;
+      --chipbg:rgba(255,255,255,.06);
+    }
+  }
+  *{box-sizing:border-box}
+  body{background:var(--bg); color:var(--ink);
+    font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif; margin:0; padding:0 20px 60px;}
+  .mono, code, .num{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}
+  header{max-width:1240px; margin:26px auto 14px;}
+  .eyebrow{font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin:0 0 6px}
+  h1{font-size:21px; margin:0; letter-spacing:-.01em}
+  h1 .sub{color:var(--ink2); font-weight:400}
+  .lede{max-width:78ch; color:var(--ink2); font-size:14px; margin:10px 0 0}
+  .lede b{color:var(--ink)}
+  main{max-width:1240px; margin:0 auto;}
+  .panel{display:grid; grid-template-columns:300px 1fr; gap:16px; align-items:start}
+  @media (max-width:900px){ .panel{grid-template-columns:1fr} }
+  .card{background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:14px 16px;}
+  .card h3{margin:0; font-size:13px; font-weight:600}
+  .card .cap{margin:2px 0 8px; font-size:12px; color:var(--muted)}
+  .side{display:flex; flex-direction:column; gap:12px}
+  .charts{display:flex; flex-direction:column; gap:12px}
+  .row{display:flex; align-items:center; justify-content:space-between; gap:8px; margin:5px 0}
+  .row label{font-size:13px; color:var(--ink2)}
+  .row input[type=number]{width:96px; padding:4px 7px; border:1px solid var(--axis); border-radius:6px;
+    background:var(--bg); color:var(--ink); font:12.5px ui-monospace,Menlo,Consolas,monospace; text-align:right}
+  .row select{padding:4px 7px; border:1px solid var(--axis); border-radius:6px;
+    background:var(--bg); color:var(--ink); font-size:12.5px}
+  input[type=range]{width:100%; margin:2px 0 8px; accent-color:var(--accent)}
+  .mdef{font-size:12.5px; color:var(--ink2); line-height:1.45; background:var(--chipbg); border-radius:8px; padding:8px 10px; margin:8px 0}
+  .mdef b{color:var(--ink)}
+  .chips{display:flex; flex-wrap:wrap; gap:6px; margin-top:4px}
+  .chip{background:var(--chipbg); border-radius:6px; padding:3px 8px; font-size:12px; color:var(--ink2)}
+  .chip b{color:var(--ink); font-weight:600}
+  .chip.ms b{color:var(--ms)} .chip.lyap b{color:var(--lyap)} .chip.harm b{color:var(--harm)} .chip.det b{color:var(--det)}
+  .pill{border-radius:999px; padding:3px 10px; font:600 12px system-ui,sans-serif; color:#fff; display:inline-block}
+  .pill.stable{background:var(--good)} .pill.msu{background:var(--warn)} .pill.lyapu{background:var(--now)} .pill.bim{background:var(--crit)}
+  .presets{display:flex; flex-wrap:wrap; gap:6px}
+  .presets button, .linkbtn, .runbtn{
+    border:1px solid var(--axis); background:var(--bg); color:var(--ink);
+    border-radius:8px; padding:6px 10px; font-size:12.5px; cursor:pointer}
+  .presets button:hover, .linkbtn:hover, .runbtn:hover{border-color:var(--accent); color:var(--accent)}
+  .runbtn{background:var(--accent); color:#fff; border-color:transparent; font-weight:600}
+  .runbtn:hover{filter:brightness(1.05); color:#fff}
+  canvas.plot{width:100%; display:block; touch-action:none; border-radius:6px; background:var(--bg)}
+  .strip{display:grid; grid-template-columns:repeat(5,1fr); gap:8px}
+  @media (max-width:700px){ .strip{grid-template-columns:1fr 1fr} }
+  .strip .mini{border:1px solid var(--border); border-radius:8px; padding:6px; background:var(--bg)}
+  .strip .mini .ttl{font-size:11px; color:var(--muted); margin:0 0 2px}
+  .strip .mini .ttl b{color:var(--ink)}
+  .legend{display:flex; flex-wrap:wrap; gap:10px; font-size:12px; color:var(--ink2); margin-top:6px}
+  .legend i{display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:4px; vertical-align:middle}
+  footer{max-width:1240px; margin:28px auto 0; font-size:12px; color:var(--muted)}
+  footer a{color:var(--accent); text-decoration:none}
+</style>
+</head>
+<body>
+
+<header>
+  <p class="eyebrow">ICLR’26 · shape of SGD iterates · 1-D stochastic linear stability</p>
+  <h1>Iterate distribution beyond stochastic stability
+    <span class="sub">— 1-D cocycle with random curvature</span></h1>
+  <p class="lede">
+    Scalar recursion
+    <b>X<sub>t+1</sub> = (1 − η h<sub>t</sub>) X<sub>t</sub> + α X<sub>t</sub><sup>3</sup> − β X<sub>t</sub><sup>5</sup> + σ ξ<sub>t</sub></b>
+    with curvature <b>h<sub>t</sub></b> drawn from a chosen law (matched mean μ and variance v).
+    Markers: mean-square edge <b>η<sub>MS</sub></b>, Lyapunov edge <b>η<sub>L</sub></b>,
+    and empirical harmonic / bimodality threshold <b>η̂<sub>H</sub></b>.
+    Reproduces the regime story of Fig.&nbsp;1; additive noise σ = 0 is allowed (collapse to 0 below η<sub>L</sub>).
+  </p>
+</header>
+
+<main>
+<section class="panel">
+  <div class="side">
+    <div class="card">
+      <h3>Model</h3>
+      <div class="mdef" id="mdef"></div>
+
+      <div class="row"><label for="law">curvature law</label>
+        <select id="law">
+          <option value="gaussian" selected>Gaussian</option>
+          <option value="uniform">Uniform</option>
+          <option value="bernoulli">Bernoulli (two-point)</option>
+          <option value="chisq">scaled χ²</option>
+          <option value="deterministic">deterministic (additive Thm&nbsp;1)</option>
+        </select>
+      </div>
+      <div class="row"><label for="mu">mean μ</label><input id="mu" type="number" step="any" value="1"></div>
+      <input id="mu_s" type="range" min="20" max="300" value="100" aria-label="mean slider">
+      <div class="row" id="row_var"><label for="v">variance v</label><input id="v" type="number" step="any" value="0.01"></div>
+      <input id="v_s" type="range" min="0" max="200" value="2" aria-label="variance slider">
+
+      <div class="row"><label for="alpha">quartic α <span style="color:var(--muted)">(signed)</span></label><input id="alpha" type="number" step="any" value="0.775"></div>
+      <input id="alpha_s" type="range" min="-200" max="200" value="31" aria-label="alpha slider">
+      <div class="row"><label for="beta">sextic β <span style="color:var(--muted)">(signed)</span></label><input id="beta" type="number" step="any" value="-0.05"></div>
+      <input id="beta_s" type="range" min="-200" max="200" value="-2" aria-label="beta slider">
+      <div class="row"><label for="sigma">additive noise σ</label><input id="sigma" type="number" step="any" value="0"></div>
+      <input id="sigma_s" type="range" min="0" max="200" value="0" aria-label="sigma slider">
+
+      <h3 style="margin-top:12px">Step size</h3>
+      <div class="row"><label for="eta">η</label><input id="eta" type="number" step="any" value="2.821"></div>
+      <input id="eta_s" type="range" min="0" max="1000" value="500" aria-label="eta slider">
+      <div class="cap" id="eta_cap">drag to move across η<sub>MS</sub> → η<sub>L</sub> → η̂<sub>H</sub></div>
+
+      <h3 style="margin-top:12px">Simulation</h3>
+      <div class="row"><label for="npart">particles</label><input id="npart" type="number" min="200" max="20000" step="100" value="4000"></div>
+      <div class="row"><label for="steps">steps</label><input id="steps" type="number" min="500" max="100000" step="500" value="8000"></div>
+      <div class="row"><label for="burn">burn-in</label><input id="burn" type="number" min="0" max="50000" step="100" value="2500"></div>
+      <div class="row"><label for="seed">seed</label><input id="seed" type="number" min="0" max="1e9" step="1" value="0"></div>
+      <div style="display:flex; gap:8px; margin-top:8px">
+        <button class="runbtn" id="run">Run</button>
+        <button class="linkbtn" id="rerun">re-seed &amp; run</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Analytical edges</h3>
+      <p class="cap">solved from the curvature law (Monte Carlo for η<sub>L</sub>, H)</p>
+      <div class="chips" id="edges"></div>
+      <div style="margin-top:8px" id="regime"></div>
+      <div class="chips" style="margin-top:8px" id="stats"></div>
+    </div>
+
+    <div class="card">
+      <h3>Presets</h3>
+      <div class="presets" id="presets"></div>
+    </div>
+  </div>
+
+  <div class="charts">
+    <div class="card">
+      <h3>Quasi-stationary iterate distribution</h3>
+      <p class="cap" id="hist_cap">histogram of particle cloud after burn-in · vertical lines = analytical edges</p>
+      <canvas class="plot" id="chist" width="900" height="380" role="img" aria-label="iterate histogram"></canvas>
+      <div class="legend">
+        <span><i style="background:var(--accent)"></i>density</span>
+        <span><i style="background:var(--ms)"></i>η<sub>MS</sub></span>
+        <span><i style="background:var(--det)"></i>2/μ</span>
+        <span><i style="background:var(--lyap)"></i>η<sub>L</sub></span>
+        <span><i style="background:var(--harm)"></i>η̂<sub>H</sub></span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Fig.&nbsp;1 strip — same law, η across regimes</h3>
+      <p class="cap">five histograms at fixed relative locations vs the computed edges (re-run updates this)</p>
+      <div class="strip" id="strip"></div>
+    </div>
+
+    <div class="card">
+      <h3>Sample trajectory</h3>
+      <p class="cap">one particle · period-2 shows up as alternating sign when past the edge</p>
+      <canvas class="plot" id="ctraj" width="900" height="220" role="img" aria-label="trajectory"></canvas>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  Interactive lab for the 1-D model in
+  <em>The Shape of SGD Iterates Beyond Stochastic Stability</em>.
+  Companion labs:
+  <a href="./eos-function-landscape.html">EoS function landscape</a> ·
+  <a href="./hessian-spectral/">Hessian spectral</a> ·
+  <a href="https://github.com/samyakjainberk/samyakjainberk.github.io">source</a>
+</footer>
+
+<script>
+/* ===================== RNG ===================== */
+function mulberry32(a){
+  return function(){
+    let t = a += 0x6D2B79F5;
+    t = Math.imul(t ^ t >>> 15, t | 1);
+    t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function randn(rng){
+  // Box-Muller
+  let u=0,v=0;
+  while(u===0) u=rng();
+  while(v===0) v=rng();
+  return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
+}
+function randChi2(k, rng){
+  // Wilson-Hilferty / sum of squares for small k; gamma via Marsaglia for general
+  if(k >= 1 && Math.abs(k - Math.round(k)) < 1e-9 && k <= 20){
+    let s=0; const n=Math.round(k);
+    for(let i=0;i<n;i++){ const z=randn(rng); s+=z*z; }
+    return s;
+  }
+  // Marsaglia-Tsang for Gamma(k/2, 1/2) = Chi2(k): shape a=k/2, scale 2
+  const a = k/2;
+  if(a < 1){
+    // boost: Gamma(a)=Gamma(a+1)*U^{1/a}
+    return randChi2(k+2, rng) * Math.pow(rng(), 2/k);
+  }
+  const d = a - 1/3, c = 1/Math.sqrt(9*d);
+  for(;;){
+    let x, v;
+    do{ x = randn(rng); v = 1 + c*x; } while(v <= 0);
+    v = v*v*v;
+    const u = rng();
+    if(u < 1 - 0.0331*(x*x)*(x*x)) return 2*d*v;
+    if(Math.log(u) < 0.5*x*x + d*(1 - v + Math.log(v))) return 2*d*v;
+  }
+}
+
+/* ===================== Curvature sampling ===================== */
+function sampleH(law, mu, v, rng){
+  const s = Math.sqrt(Math.max(v, 0));
+  if(law === 'deterministic' || s === 0) return mu;
+  if(law === 'gaussian') return mu + s*randn(rng);
+  if(law === 'uniform'){
+    const a = s*Math.sqrt(3);
+    return mu - a + 2*a*rng();
+  }
+  if(law === 'bernoulli') return mu + (rng() < 0.5 ? -s : s);
+  if(law === 'chisq'){
+    // match mean μ, var v: h = c * Chi2(k), c k = μ, c² 2k = v ⇒ k = 2 μ² / v
+    const k = Math.max(2*mu*mu / Math.max(v, 1e-12), 0.5);
+    const c = mu / k;
+    return c * randChi2(k, rng);
+  }
+  return mu;
+}
+
+/* ===================== Edges ===================== */
+function etaMS(mu, v){
+  return 2*mu / (mu*mu + Math.max(v, 0));
+}
+function mcExpect(law, mu, v, fn, n, seed){
+  const rng = mulberry32(seed >>> 0);
+  let s = 0;
+  for(let i=0;i<n;i++) s += fn(sampleH(law, mu, v, rng));
+  return s / n;
+}
+function etaLyapunov(law, mu, v, seed){
+  if(law === 'deterministic' || v <= 0) return 2/mu;
+  // bisection on E[log|1-ηh|] = 0
+  let lo = 1e-6, hi = 40/Math.max(mu, 1e-6);
+  for(let it=0; it<48; it++){
+    const mid = 0.5*(lo+hi);
+    const m = mcExpect(law, mu, v, h => Math.log(Math.abs(1 - mid*h) + 1e-30), 80000, seed+it*97);
+    if(m < 0) lo = mid; else hi = mid;
+  }
+  return 0.5*(lo+hi);
+}
+function harmonicH(law, mu, v, eta, seed){
+  // E[1/|1-ηh|] with floor to avoid hard singularities in MC
+  return mcExpect(law, mu, v, h => 1 / Math.max(Math.abs(1 - eta*h), 1e-3), 60000, seed+3);
+}
+
+/* ===================== Simulation ===================== */
+function stepX(x, h, eta, alpha, beta, sigma, rng){
+  // α, β are map coefficients (not η·loss-coeffs): X ← (1−ηh)X + α X³ − β X⁵ + σξ
+  const x2 = x*x, x3 = x2*x, x5 = x3*x2;
+  let y = (1 - eta*h)*x + alpha*x3 - beta*x5;
+  if(sigma > 0) y += sigma * randn(rng);
+  return y;
+}
+
+function runCloud(p){
+  const {law, mu, v, eta, alpha, beta, sigma, npart, steps, burn, seed} = p;
+  const rng = mulberry32(seed >>> 0);
+  const x = new Float64Array(npart);
+  for(let i=0;i<npart;i++) x[i] = 0.15 * (rng() < 0.5 ? -1 : 1) * (0.3 + 0.7*rng());
+
+  const traj = [];
+  const bound = 12;
+  let escapes = 0;
+  // Pass 1: evolve; track post-burn-in support so the histogram window
+  // can expand past the old ±2.8 (lobes often sit near ±3–6 for α<0).
+  let maxAbs = 1.5;
+  const post = [];
+  for(let t=0; t<steps; t++){
+    for(let i=0;i<npart;i++){
+      const h = sampleH(law, mu, v, rng);
+      let y = stepX(x[i], h, eta, alpha, beta, sigma, rng);
+      if(!Number.isFinite(y) || Math.abs(y) > bound){
+        escapes++;
+        let j = (Math.floor(rng()*npart))|0;
+        let guard = 0;
+        while((!Number.isFinite(x[j]) || Math.abs(x[j]) > bound) && guard++ < 8){
+          j = (Math.floor(rng()*npart))|0;
+        }
+        y = (Number.isFinite(x[j]) && Math.abs(x[j]) <= bound) ? x[j] : 0.1*(rng()-0.5);
+      }
+      x[i] = y;
+      if(t >= burn){
+        const a = Math.abs(y);
+        if(a > maxAbs) maxAbs = a;
+      }
+    }
+    traj.push(x[0]);
+    if(t >= burn){
+      // subsample particles each step to keep memory light
+      for(let i=0;i<npart;i+=4) post.push(x[i]);
+    }
+  }
+  const R = Math.min(bound, Math.max(3.0, 1.25 * maxAbs));
+  const xmin = -R, xmax = R;
+  const nbins = 140;
+  const bw = (xmax - xmin) / nbins;
+  const hist = new Float64Array(nbins);
+  let nAcc = 0;
+  for(let k=0;k<post.length;k++){
+    const xi = post[k];
+    if(xi < xmin || xi >= xmax) continue;
+    const b = Math.min(nbins-1, Math.max(0, ((xi - xmin) / bw)|0));
+    hist[b] += 1;
+    nAcc++;
+  }
+  const dens = new Float64Array(nbins);
+  const centers = new Float64Array(nbins);
+  const scale = nAcc > 0 ? 1 / (nAcc * bw) : 0;
+  for(let b=0;b<nbins;b++){
+    dens[b] = hist[b] * scale;
+    centers[b] = xmin + (b + 0.5)*bw;
+  }
+  return {centers, dens, traj, escapes, xmin, xmax, maxAbs};
+}
+
+function isBimodal(centers, dens){
+  // True two-lobe: nontrivial mass on BOTH sides of 0, with a dip at 0.
+  // (Old check fired on a single off-center peak — "central depletion" false positive.)
+  let i0 = 0, best = Infinity;
+  for(let i=0;i<centers.length;i++){
+    const a = Math.abs(centers[i]);
+    if(a < best){ best = a; i0 = i; }
+  }
+  let left = 0, right = 0;
+  for(let i=0;i<centers.length;i++){
+    if(centers[i] < -0.25) left = Math.max(left, dens[i]);
+    if(centers[i] >  0.25) right = Math.max(right, dens[i]);
+  }
+  const p0 = dens[i0];
+  const side = Math.max(left, right);
+  const both = left > 0.25 && right > 0.25;
+  const dip = p0 < 0.88 * Math.min(left, right);
+  return {bimodal: both && dip, p0, side, left, right, peak: Math.max(...dens)};
+}
+
+const _etaHCache = new Map();
+function estimateEtaH(base, seed){
+  // smallest η in [η_L, 2.2 η_L] with bimodal histogram (cached by law/params)
+  const key = [base.law, base.mu, base.v, base.alpha, base.beta, base.sigma].map(x => +x === +x ? (+x).toFixed(5) : x).join('|');
+  if(_etaHCache.has(key)) return _etaHCache.get(key);
+  const eL = base.eL;
+  const eMS = base.eMS;
+  let lo = Math.max(eL * 0.98, eMS), hi = eL * 2.4;
+  let found = null;
+  const grid = 7;
+  for(let i=0;i<=grid;i++){
+    const eta = lo + (hi-lo)*i/grid;
+    const sim = runCloud({...base, eta, npart: 1200, steps: 2200, burn: 800, seed: seed+11+i});
+    if(isBimodal(sim.centers, sim.dens).bimodal){ found = eta; break; }
+  }
+  if(found == null){ _etaHCache.set(key, NaN); return NaN; }
+  let L = Math.max(lo, found - (hi-lo)/grid), R = found;
+  for(let it=0; it<4; it++){
+    const mid = 0.5*(L+R);
+    const sim = runCloud({...base, eta: mid, npart: 1200, steps: 2200, burn: 800, seed: seed+100+it});
+    if(isBimodal(sim.centers, sim.dens).bimodal) R = mid; else L = mid;
+  }
+  _etaHCache.set(key, R);
+  return R;
+}
+
+/* ===================== UI helpers ===================== */
+function $(id){ return document.getElementById(id); }
+function fmt(x, d=3){
+  if(x == null || !Number.isFinite(x)) return '—';
+  if(Math.abs(x) >= 100) return x.toFixed(1);
+  if(Math.abs(x) >= 10) return x.toFixed(2);
+  return x.toFixed(d);
+}
+function syncSlider(numId, sId, toSlider, fromSlider){
+  const n = $(numId), s = $(sId);
+  const applyNum = () => { s.value = String(toSlider(+n.value)); };
+  const applyS = () => { n.value = String(fromSlider(+s.value)); };
+  n.addEventListener('change', () => { applyNum(); schedule(); });
+  s.addEventListener('input', () => { applyS(); schedule(); });
+  applyNum();
+}
+
+function readParams(){
+  return {
+    law: $('law').value,
+    mu: +$('mu').value,
+    v: +$('v').value,
+    alpha: +$('alpha').value,
+    beta: +$('beta').value,
+    sigma: +$('sigma').value,
+    eta: +$('eta').value,
+    npart: +$('npart').value|0,
+    steps: +$('steps').value|0,
+    burn: +$('burn').value|0,
+    seed: +$('seed').value|0,
+  };
+}
+
+function updateDef(p){
+  const lawTxt = {
+    gaussian: 'h ∼ 𝒩(μ, v)',
+    uniform: 'h ∼ Unif matched to (μ, v)',
+    bernoulli: 'h ∈ {μ−√v, μ+√v} w.p. ½',
+    chisq: 'h = c·χ²ₖ matched to (μ, v)',
+    deterministic: 'h ≡ μ (additive-noise theorem)',
+  }[p.law];
+  $('mdef').innerHTML =
+    `<b>X ← (1−ηh)X + α X³ − β X⁵ + σξ</b><br>` +
+    `${lawTxt} · α=${fmt(p.alpha,2)} · β=${fmt(p.beta,2)} · σ=${fmt(p.sigma,3)}`;
+  $('row_var').style.opacity = (p.law === 'deterministic') ? 0.4 : 1;
+  $('v_s').disabled = p.law === 'deterministic';
+}
+
+function computeEdges(p){
+  const vEff = (p.law === 'deterministic') ? 0 : Math.max(p.v, 0);
+  const eMS = etaMS(p.mu, vEff);
+  const eL = etaLyapunov(p.law === 'deterministic' ? 'deterministic' : p.law, p.mu, vEff, p.seed+1);
+  const eDet = 2 / p.mu;
+  return {eMS, eL, eDet, vEff};
+}
+
+/* ===================== Drawing ===================== */
+function dpiCanvas(c){
+  const dpr = window.devicePixelRatio || 1;
+  const rect = c.getBoundingClientRect();
+  const cssW = Math.max(300, rect.width || c.width);
+  const cssH = c.height / (c.width / cssW);
+  c.width = Math.round(cssW * dpr);
+  c.height = Math.round(cssH * dpr);
+  const ctx = c.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return {ctx, W: cssW, H: cssH};
+}
+function drawHist(canvas, sim, edges, eta){
+  const {ctx, W, H} = dpiCanvas(canvas);
+  ctx.clearRect(0,0,W,H);
+  const pad = {l:48, r:16, t:16, b:36};
+  const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
+  const xMin = sim.xmin, xMax = sim.xmax;
+  const yMax = Math.max(0.1, Math.max(...sim.dens) * 1.12);
+  const X = x => pad.l + (x - xMin)/(xMax - xMin) * pw;
+  const Y = y => pad.t + (1 - y/yMax) * ph;
+
+  // grid
+  ctx.strokeStyle = getCss('--grid'); ctx.lineWidth = 1;
+  ctx.beginPath();
+  for(let i=0;i<=4;i++){
+    const y = pad.t + ph*i/4;
+    ctx.moveTo(pad.l, y); ctx.lineTo(pad.l+pw, y);
+  }
+  ctx.stroke();
+
+  // bars
+  const bw = (xMax - xMin) / sim.dens.length;
+  ctx.fillStyle = 'rgba(42,120,214,0.55)';
+  for(let i=0;i<sim.dens.length;i++){
+    const x0 = X(sim.centers[i] - bw/2);
+    const x1 = X(sim.centers[i] + bw/2);
+    const y = Y(sim.dens[i]);
+    ctx.fillRect(x0, y, Math.max(1, x1-x0-0.5), pad.t+ph - y);
+  }
+  // density outline
+  ctx.strokeStyle = getCss('--accent'); ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  for(let i=0;i<sim.dens.length;i++){
+    const xx = X(sim.centers[i]), yy = Y(sim.dens[i]);
+    if(i===0) ctx.moveTo(xx,yy); else ctx.lineTo(xx,yy);
+  }
+  ctx.stroke();
+
+  // zero line
+  ctx.strokeStyle = getCss('--axis'); ctx.setLineDash([3,3]);
+  ctx.beginPath(); ctx.moveTo(X(0), pad.t); ctx.lineTo(X(0), pad.t+ph); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // axes
+  ctx.strokeStyle = getCss('--axis'); ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(pad.l, pad.t); ctx.lineTo(pad.l, pad.t+ph); ctx.lineTo(pad.l+pw, pad.t+ph);
+  ctx.stroke();
+  ctx.fillStyle = getCss('--muted'); ctx.font = '11px system-ui';
+  ctx.fillText('X', W/2, H-8);
+  ctx.save(); ctx.translate(14, H/2); ctx.rotate(-Math.PI/2); ctx.fillText('density', 0, 0); ctx.restore();
+  const span = xMax - xMin;
+  const tickStep = span > 10 ? 2 : (span > 6 ? 1 : 1);
+  for(let xv = Math.ceil(xMin); xv <= Math.floor(xMax); xv += tickStep){
+    ctx.fillText(String(xv), X(xv)-4, pad.t+ph+14);
+  }
+
+  // eta marker as text chip (eta is step size, not on x-axis) — show edges as legend text top-right
+  ctx.font = '12px ui-monospace, Menlo, monospace';
+  ctx.fillStyle = getCss('--ink2');
+  ctx.textAlign = 'right';
+  let ty = pad.t + 14;
+  const rows = [
+    [`η = ${fmt(eta,3)}`, getCss('--ink')],
+    [`η_MS = ${fmt(edges.eMS)}`, getCss('--ms')],
+    [`2/μ = ${fmt(edges.eDet)}`, getCss('--det')],
+    [`η_L = ${fmt(edges.eL)}`, getCss('--lyap')],
+    [`η̂_H = ${fmt(edges.eH)}`, getCss('--harm')],
+  ];
+  for(const [t,col] of rows){ ctx.fillStyle = col; ctx.fillText(t, pad.l+pw-4, ty); ty += 15; }
+  ctx.textAlign = 'left';
+}
+function getCss(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+
+function drawTraj(canvas, traj){
+  const {ctx, W, H} = dpiCanvas(canvas);
+  ctx.clearRect(0,0,W,H);
+  const pad = {l:48, r:16, t:12, b:28};
+  const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
+  const n = traj.length;
+  let yMax = 0.2;
+  for(let i=0;i<n;i++) yMax = Math.max(yMax, Math.abs(traj[i]));
+  yMax *= 1.15;
+  const X = i => pad.l + i/(n-1) * pw;
+  const Y = y => pad.t + (0.5 - 0.5*y/yMax) * ph;
+
+  ctx.strokeStyle = getCss('--grid'); ctx.beginPath();
+  ctx.moveTo(pad.l, Y(0)); ctx.lineTo(pad.l+pw, Y(0)); ctx.stroke();
+
+  // show last 400 steps for clarity
+  const start = Math.max(0, n - 400);
+  ctx.strokeStyle = getCss('--accent'); ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  for(let i=start;i<n;i++){
+    const xx = pad.l + (i-start)/(n-1-start) * pw;
+    const yy = Y(traj[i]);
+    if(i===start) ctx.moveTo(xx,yy); else ctx.lineTo(xx,yy);
+  }
+  ctx.stroke();
+  // even/odd markers on last 40
+  const m0 = Math.max(start, n-40);
+  for(let i=m0;i<n;i++){
+    ctx.fillStyle = (i%2===0) ? getCss('--sharpmid') : getCss('--now');
+    ctx.beginPath(); ctx.arc(pad.l + (i-start)/(n-1-start)*pw, Y(traj[i]), 2.2, 0, 6.28); ctx.fill();
+  }
+  ctx.strokeStyle = getCss('--axis');
+  ctx.beginPath(); ctx.moveTo(pad.l, pad.t); ctx.lineTo(pad.l, pad.t+ph); ctx.lineTo(pad.l+pw, pad.t+ph); ctx.stroke();
+  ctx.fillStyle = getCss('--muted'); ctx.font = '11px system-ui';
+  ctx.fillText('t (last steps)', W/2 - 30, H-6);
+  ctx.fillText('+' + fmt(yMax,2), pad.l+4, pad.t+10);
+  ctx.fillText('-' + fmt(yMax,2), pad.l+4, pad.t+ph);
+}
+
+function drawMini(container, sim, title, bim){
+  const wrap = document.createElement('div');
+  wrap.className = 'mini';
+  wrap.innerHTML = `<div class="ttl">${title}${bim ? ' · <b style="color:var(--crit)">bimodal</b>' : ''}</div>`;
+  const c = document.createElement('canvas');
+  c.width = 220; c.height = 120; c.className = 'plot';
+  wrap.appendChild(c);
+  container.appendChild(wrap);
+  const {ctx, W, H} = dpiCanvas(c);
+  const pad = {l:4, r:4, t:4, b:4};
+  const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
+  const yMax = Math.max(0.1, Math.max(...sim.dens)*1.1);
+  const X = x => pad.l + (x - sim.xmin)/(sim.xmax - sim.xmin) * pw;
+  const Y = y => pad.t + (1 - y/yMax) * ph;
+  ctx.fillStyle = 'rgba(42,120,214,0.5)';
+  const bw = (sim.xmax - sim.xmin) / sim.dens.length;
+  for(let i=0;i<sim.dens.length;i++){
+    const x0 = X(sim.centers[i] - bw/2);
+    const x1 = X(sim.centers[i] + bw/2);
+    const y = Y(sim.dens[i]);
+    ctx.fillRect(x0, y, Math.max(1,x1-x0), pad.t+ph-y);
+  }
+  ctx.strokeStyle = getCss('--axis'); ctx.setLineDash([2,2]);
+  ctx.beginPath(); ctx.moveTo(X(0), pad.t); ctx.lineTo(X(0), pad.t+ph); ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+/* ===================== Main update ===================== */
+let busy = false, timer = null, lastEdges = null;
+
+function schedule(){
+  clearTimeout(timer);
+  timer = setTimeout(runAll, 120);
+}
+
+function regimePill(eta, e){
+  if(eta < e.eMS) return ['stable', 'mean-square stable'];
+  if(eta < e.eL) return ['msu', 'past η_MS · before η_L'];
+  if(Number.isFinite(e.eH) && eta >= e.eH) return ['bim', 'past η̂_H · bimodal regime'];
+  return ['lyapu', 'past η_L · broadening'];
+}
+
+function runAll(){
+  if(busy) return;
+  busy = true;
+  const p = readParams();
+  updateDef(p);
+  try{
+    const edges = computeEdges(p);
+    // eta slider mapped across [0.3 η_MS, 2.2 η_L]
+    const etaLo = 0.25 * edges.eMS;
+    const etaHi = 2.2 * edges.eL;
+    // if user moved number, keep; slider sync separately below
+
+    const base = {...p, eMS: edges.eMS, eL: edges.eL, eDet: edges.eDet, v: edges.vEff};
+    // estimate η_H (skip if deterministic+σ=0 and below edge — still try)
+    const eH = estimateEtaH(base, p.seed);
+    edges.eH = eH;
+    lastEdges = edges;
+
+    const Hcur = harmonicH(p.law === 'deterministic' ? 'deterministic' : p.law, p.mu, edges.vEff, p.eta, p.seed+5);
+
+    $('edges').innerHTML =
+      `<span class="chip ms">η<sub>MS</sub> = <b>${fmt(edges.eMS)}</b></span>` +
+      `<span class="chip det">2/μ = <b>${fmt(edges.eDet)}</b></span>` +
+      `<span class="chip lyap">η<sub>L</sub> = <b>${fmt(edges.eL)}</b></span>` +
+      `<span class="chip harm">η̂<sub>H</sub> = <b>${fmt(edges.eH)}</b></span>` +
+      `<span class="chip">H(η)=E|1−ηh|⁻¹ ≈ <b>${fmt(Hcur,2)}</b></span>`;
+
+    const [cls, lab] = regimePill(p.eta, edges);
+    $('regime').innerHTML = `<span class="pill ${cls}">${lab}</span>`;
+
+    // main simulation
+    const sim = runCloud(p);
+    const bim = isBimodal(sim.centers, sim.dens);
+    drawHist($('chist'), sim, edges, p.eta);
+    drawTraj($('ctraj'), sim.traj);
+
+    const lagN = Math.min(2000, sim.traj.length-1);
+    let num=0, den1=0, den2=0;
+    const t0 = sim.traj.length - lagN - 1;
+    let m1=0,m2=0;
+    for(let i=0;i<lagN;i++){ m1+=sim.traj[t0+i]; m2+=sim.traj[t0+i+1]; }
+    m1/=lagN; m2/=lagN;
+    for(let i=0;i<lagN;i++){
+      const a=sim.traj[t0+i]-m1, b=sim.traj[t0+i+1]-m2;
+      num+=a*b; den1+=a*a; den2+=b*b;
+    }
+    const lag1 = num / Math.sqrt((den1+1e-30)*(den2+1e-30));
+
+    $('stats').innerHTML =
+      `<span class="chip">p(0)=<b>${fmt(bim.p0,2)}</b></span>` +
+      `<span class="chip">left=<b>${fmt(bim.left,2)}</b></span>` +
+      `<span class="chip">right=<b>${fmt(bim.right,2)}</b></span>` +
+      `<span class="chip">bimodal=<b>${bim.bimodal ? 'yes' : 'no'}</b></span>` +
+      `<span class="chip">lag-1=<b>${fmt(lag1,2)}</b></span>` +
+      `<span class="chip">|x|max=<b>${fmt(sim.maxAbs,2)}</b></span>` +
+      `<span class="chip">escapes=<b>${sim.escapes}</b></span>`;
+
+    $('hist_cap').textContent =
+      `N=${p.npart} particles · T=${p.steps} (burn ${p.burn}) · seed ${p.seed}` +
+      ` · axis [−${fmt(-sim.xmin,1)}, ${fmt(sim.xmax,1)}] (auto)` +
+      (bim.bimodal ? ' · two-sided lobes' : ' · not two-sided bimodal');
+
+    // Fig 1 strip
+    const strip = $('strip'); strip.innerHTML = '';
+    const etas = [
+      ['0.6 η_MS', 0.6*edges.eMS],
+      ['0.5(η_MS+η_L)', 0.5*(edges.eMS+edges.eL)],
+      ['η_L', edges.eL],
+      [Number.isFinite(eH) ? 'η̂_H' : '1.15 η_L', Number.isFinite(eH) ? eH : 1.15*edges.eL],
+      ['1.5 η_L', 1.5*edges.eL],
+    ];
+    etas.forEach(([lab, eta], i) => {
+      const s = runCloud({...p, eta, npart: Math.min(2500, p.npart), steps: Math.min(5000, p.steps), burn: Math.min(1500, p.burn), seed: p.seed+20+i});
+      const b = isBimodal(s.centers, s.dens);
+      drawMini(strip, s, `<b>η=${fmt(eta)}</b> · ${lab}`, b.bimodal);
+    });
+
+    // keep eta slider range consistent
+    const toS = eta => Math.round(1000 * (eta - etaLo) / (etaHi - etaLo));
+    const fromS = s => etaLo + (etaHi - etaLo) * s/1000;
+    $('eta_s').value = String(Math.max(0, Math.min(1000, toS(p.eta))));
+    $('eta_cap').innerHTML =
+      `range [${fmt(etaLo)}, ${fmt(etaHi)}] spanning η<sub>MS</sub>=${fmt(edges.eMS)} · η<sub>L</sub>=${fmt(edges.eL)}` +
+      (Number.isFinite(eH) ? ` · η̂<sub>H</sub>=${fmt(eH)}` : '');
+
+  } finally {
+    busy = false;
+  }
+}
+
+/* ===================== Wire controls ===================== */
+syncSlider('mu', 'mu_s',
+  x => Math.round(x*100),
+  s => (s/100));
+syncSlider('v', 'v_s',
+  x => Math.round(x*200),
+  s => s/200);
+// sliders span [-5, 5] so α, β can flip sign (sub- vs super-quartic / confining vs anti-confining)
+syncSlider('alpha', 'alpha_s',
+  x => Math.max(-200, Math.min(200, Math.round(x*40))),
+  s => s/40);
+syncSlider('beta', 'beta_s',
+  x => Math.max(-200, Math.min(200, Math.round(x*40))),
+  s => s/40);
+syncSlider('sigma', 'sigma_s',
+  x => Math.round(x*400),
+  s => s/400);
+
+$('eta_s').addEventListener('input', () => {
+  // map slider using last edges if available
+  const p = readParams();
+  const e = lastEdges || computeEdges(p);
+  const etaLo = 0.25 * e.eMS;
+  const etaHi = 2.2 * e.eL;
+  $('eta').value = String(+(etaLo + (etaHi-etaLo)*($('eta_s').value/1000)).toFixed(4));
+  schedule();
+});
+$('eta').addEventListener('change', schedule);
+$('law').addEventListener('change', schedule);
+['npart','steps','burn','seed'].forEach(id => $(id).addEventListener('change', schedule));
+$('run').addEventListener('click', runAll);
+$('rerun').addEventListener('click', () => {
+  $('seed').value = String(((+$('seed').value) + 1) | 0);
+  runAll();
+});
+
+const PRESETS = [
+  {name: 'Gaussian default (screenshot)', law:'gaussian', mu:1, v:0.01, alpha:0.775, beta:-0.05, sigma:0, eta:2.821},
+  {name: 'Bernoulli · past η_L', law:'bernoulli', mu:1, v:0.25, alpha:2.5, beta:2, sigma:0.04, eta:2.9},
+  {name: 'Uniform · bimodal hunt', law:'uniform', mu:1, v:0.3, alpha:3, beta:2.5, sigma:0.05, eta:3.1},
+  {name: 'Additive Thm 1 · clear lobes', law:'deterministic', mu:1, v:0, alpha:2.5, beta:1.2, sigma:0.06, eta:2.4},
+  {name: 'α < 0 · super-quartic', law:'deterministic', mu:1, v:0, alpha:-2.5, beta:2, sigma:0.06, eta:2.4},
+  {name: 'β < 0 · anti-confining', law:'bernoulli', mu:1, v:0.25, alpha:2.5, beta:-1, sigma:0.04, eta:2.5},
+  {name: 'σ = 0 · collapse check', law:'bernoulli', mu:1, v:0.25, alpha:2.5, beta:2, sigma:0, eta:1.2},
+  {name: 'χ² · matched (μ,v)', law:'chisq', mu:1, v:0.25, alpha:2.5, beta:2, sigma:0.05, eta:2.8},
+];
+const presetBox = $('presets');
+PRESETS.forEach(pr => {
+  const b = document.createElement('button');
+  b.textContent = pr.name;
+  b.addEventListener('click', () => {
+    $('law').value = pr.law;
+    $('mu').value = pr.mu; $('v').value = pr.v;
+    $('alpha').value = pr.alpha; $('beta').value = pr.beta;
+    $('sigma').value = pr.sigma; $('eta').value = pr.eta;
+    // sync sliders
+    ['mu','v','alpha','beta','sigma'].forEach(id => {
+      $(id).dispatchEvent(new Event('change'));
+    });
+    runAll();
+  });
+  presetBox.appendChild(b);
+});
+
+window.addEventListener('resize', () => { if(lastEdges) schedule(); });
+runAll();
+</script>
+</body>
+</html>
