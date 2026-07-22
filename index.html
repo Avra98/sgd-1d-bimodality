@@ -68,6 +68,7 @@
   .chip{background:var(--chipbg); border-radius:8px; padding:4px 9px; font-size:12px; color:var(--ink2)}
   .chip b{color:var(--ink); font-weight:650}
   .chip.ms b{color:var(--ms)} .chip.lyap b{color:var(--lyap)} .chip.harm b{color:var(--harm)} .chip.det b{color:var(--det)}
+  .chip.now b{color:var(--now)}
   .pill{border-radius:999px; padding:4px 11px; font:650 12px system-ui,sans-serif; color:#fff; display:inline-block}
   .pill.stable{background:var(--good)} .pill.msu{background:var(--warn)} .pill.lyapu{background:var(--now)} .pill.bim{background:var(--crit)}
   .presets{display:flex; flex-wrap:wrap; gap:6px}
@@ -153,7 +154,11 @@
       </div>
       <div class="knob">
         <div class="knob-h">Law of \(h_t\)</div>
-        <p>Gaussian / Uniform / Bernoulli / \(\chi^2\) (matched \(\mu,v\)), or deterministic \(h\equiv\mu\) for the additive-noise theorem case.</p>
+        <p>Gaussian / Uniform / Bernoulli / \(\chi^2\) (matched \(\mu,v\)), deterministic \(h\equiv\mu\), or <b>rare spike</b>: typically small \(h\), rarely huge \(h\), with fixed mean \(\mu\).</p>
+      </div>
+      <div class="knob">
+        <div class="knob-h">Rare spike \(\varepsilon,\,h_{\mathrm{low}}\)</div>
+        <p>\(P(h=h_{\mathrm{high}})=\varepsilon\), else \(h_{\mathrm{low}}\), with \(h_{\mathrm{high}}\) chosen so \(\mathbb{E}[h]=\mu\). Can be bimodal with \(\eta\ll 2/\mu\) while \(h\equiv\mu\) stays at \(0\). Often lag-1 \(&gt;0\) (well-hopping), not flip period-2.</p>
       </div>
     </div>
     <div class="tip on" id="tip_stoch">
@@ -161,6 +166,9 @@
     </div>
     <div class="tip" id="tip_det">
       <b>Deterministic mode.</b> All edges collapse to \(2/\mu\). Additive noise \(\sigma\) broadens the period-2 orbit into two stochastic lobes (Thm.&nbsp;1–3).
+    </div>
+    <div class="tip" id="tip_spike">
+      <b>Rare-spike mode.</b> \(\eta_{\mathrm{MS}}\) and \(\eta_L\) collapse near \(2/h_{\mathrm{high}}\ll 2/\mu\). You can sit past those rare-event edges yet far below \(2/\mu\): two lobes appear, while the mean-field control \(h\equiv\mu\) at the same \(\eta\) stays at \(0\). Lag-1 is often positive (well-hopping), not classic flip period-2.
     </div>
   </div>
 </details>
@@ -178,6 +186,7 @@
           <option value="uniform">Uniform</option>
           <option value="bernoulli">Bernoulli (two-point)</option>
           <option value="chisq">scaled χ²</option>
+          <option value="spike">rare spike (skewed)</option>
           <option value="deterministic">deterministic (Thm 1)</option>
         </select>
       </div>
@@ -186,7 +195,15 @@
       <p class="hint">Sets the scale of the edge: roughly \(\eta\sim 2/\mu\).</p>
       <div class="row" id="row_var"><label for="v">variance \(v\)</label><input id="v" type="number" step="any" value="0.01"></div>
       <input id="v_s" type="range" min="0" max="200" value="2" aria-label="variance slider">
-      <p class="hint">Matched across laws. Small \(v\) ⇒ \(\eta_{\mathrm{MS}}\approx\eta_L\approx 2/\mu\).</p>
+      <p class="hint" id="hint_var">Matched across laws. Small \(v\) ⇒ \(\eta_{\mathrm{MS}}\approx\eta_L\approx 2/\mu\).</p>
+      <div id="spike_controls" style="display:none">
+        <div class="row"><label for="eps">rare prob \(\varepsilon\)</label><input id="eps" type="number" step="any" min="0.001" max="0.5" value="0.02"></div>
+        <input id="eps_s" type="range" min="1" max="200" value="20" aria-label="epsilon slider">
+        <p class="hint">\(P(h=h_{\mathrm{high}})=\varepsilon\). Smaller \(\varepsilon\) ⇒ rarer, larger spike (\(h_{\mathrm{high}}\approx\mu/\varepsilon\) if \(h_{\mathrm{low}}=0\)).</p>
+        <div class="row"><label for="h_low">typical \(h_{\mathrm{low}}\)</label><input id="h_low" type="number" step="any" value="0"></div>
+        <input id="h_low_s" type="range" min="0" max="100" value="0" aria-label="h_low slider">
+        <p class="hint" id="spike_readout">\(h_{\mathrm{high}}\) and \(v\) are fixed by \((\mu,\varepsilon,h_{\mathrm{low}})\).</p>
+      </div>
 
       <h3>Nonlinearity</h3>
       <div class="row"><label for="alpha">\(\alpha\) (cubic)</label><input id="alpha" type="number" step="any" value="0.775"></div>
@@ -309,7 +326,20 @@ function randChi2(k, rng){
 }
 
 /* ===================== Curvature sampling ===================== */
-function sampleH(law, mu, v, rng){
+function spikeMoments(mu, eps, hLow){
+  const e = Math.min(Math.max(+eps || 0.02, 1e-6), 1 - 1e-6);
+  const hl = +hLow || 0;
+  const hh = (mu - (1 - e)*hl) / e;
+  const eh2 = (1 - e)*hl*hl + e*hh*hh;
+  const v = Math.max(eh2 - mu*mu, 0);
+  return {eps:e, hLow:hl, hHigh:hh, v};
+}
+function sampleH(p, rng){
+  const {law, mu, v} = p;
+  if(law === 'spike'){
+    const sp = p.spike || spikeMoments(mu, p.eps, p.h_low);
+    return rng() < sp.eps ? sp.hHigh : sp.hLow;
+  }
   const s = Math.sqrt(Math.max(v, 0));
   if(law === 'deterministic' || s === 0) return mu;
   if(law === 'gaussian') return mu + s*randn(rng);
@@ -331,26 +361,38 @@ function sampleH(law, mu, v, rng){
 function etaMS(mu, v){
   return 2*mu / (mu*mu + Math.max(v, 0));
 }
-function mcExpect(law, mu, v, fn, n, seed){
+function mcExpect(p, fn, n, seed){
   const rng = mulberry32(seed >>> 0);
   let s = 0;
-  for(let i=0;i<n;i++) s += fn(sampleH(law, mu, v, rng));
+  for(let i=0;i<n;i++) s += fn(sampleH(p, rng));
   return s / n;
 }
-function etaLyapunov(law, mu, v, seed){
-  if(law === 'deterministic' || v <= 0) return 2/mu;
+function etaLyapunov(p, seed){
+  if(p.law === 'deterministic' || p.v <= 0) return 2/p.mu;
+  // closed form for two-point spike
+  if(p.law === 'spike'){
+    const sp = p.spike;
+    let lo = 1e-6, hi = 40/Math.max(p.mu, 1e-6);
+    for(let it=0; it<60; it++){
+      const mid = 0.5*(lo+hi);
+      const m = (1-sp.eps)*Math.log(Math.abs(1-mid*sp.hLow)+1e-30)
+              + sp.eps*Math.log(Math.abs(1-mid*sp.hHigh)+1e-30);
+      if(m < 0) lo = mid; else hi = mid;
+    }
+    return 0.5*(lo+hi);
+  }
   // bisection on E[log|1-ηh|] = 0
-  let lo = 1e-6, hi = 40/Math.max(mu, 1e-6);
+  let lo = 1e-6, hi = 40/Math.max(p.mu, 1e-6);
   for(let it=0; it<48; it++){
     const mid = 0.5*(lo+hi);
-    const m = mcExpect(law, mu, v, h => Math.log(Math.abs(1 - mid*h) + 1e-30), 80000, seed+it*97);
+    const m = mcExpect(p, h => Math.log(Math.abs(1 - mid*h) + 1e-30), 80000, seed+it*97);
     if(m < 0) lo = mid; else hi = mid;
   }
   return 0.5*(lo+hi);
 }
-function harmonicH(law, mu, v, eta, seed){
+function harmonicH(p, eta, seed){
   // E[1/|1-ηh|] with floor to avoid hard singularities in MC
-  return mcExpect(law, mu, v, h => 1 / Math.max(Math.abs(1 - eta*h), 1e-3), 60000, seed+3);
+  return mcExpect(p, h => 1 / Math.max(Math.abs(1 - eta*h), 1e-3), 60000, seed+3);
 }
 
 /* ===================== Simulation ===================== */
@@ -363,7 +405,7 @@ function stepX(x, h, eta, alpha, beta, sigma, rng){
 }
 
 function runCloud(p){
-  const {law, mu, v, eta, alpha, beta, sigma, npart, steps, burn, seed} = p;
+  const {eta, alpha, beta, sigma, npart, steps, burn, seed} = p;
   const rng = mulberry32(seed >>> 0);
   const x = new Float64Array(npart);
   for(let i=0;i<npart;i++) x[i] = 0.15 * (rng() < 0.5 ? -1 : 1) * (0.3 + 0.7*rng());
@@ -377,7 +419,7 @@ function runCloud(p){
   const post = [];
   for(let t=0; t<steps; t++){
     for(let i=0;i<npart;i++){
-      const h = sampleH(law, mu, v, rng);
+      const h = sampleH(p, rng);
       let y = stepX(x[i], h, eta, alpha, beta, sigma, rng);
       if(!Number.isFinite(y) || Math.abs(y) > bound){
         escapes++;
@@ -445,12 +487,17 @@ function isBimodal(centers, dens){
 
 const _etaHCache = new Map();
 function estimateEtaH(base, seed){
-  // smallest η in [η_L, 2.2 η_L] with bimodal histogram (cached by law/params)
-  const key = [base.law, base.mu, base.v, base.alpha, base.beta, base.sigma].map(x => +x === +x ? (+x).toFixed(5) : x).join('|');
+  // smallest η with bimodal histogram (cached by law/params)
+  const key = [base.law, base.mu, base.v, base.alpha, base.beta, base.sigma, base.eps, base.h_low]
+    .map(x => +x === +x ? (+x).toFixed(5) : x).join('|');
   if(_etaHCache.has(key)) return _etaHCache.get(key);
   const eL = base.eL;
   const eMS = base.eMS;
-  let lo = Math.max(eL * 0.98, eMS), hi = eL * 2.4;
+  // rare-spike bimodality can appear well below η_L / 2/μ
+  let lo = (base.law === 'spike')
+    ? Math.max(1e-4, Math.min(eMS, base.eRare || eMS) * 0.5)
+    : Math.max(eL * 0.98, eMS);
+  let hi = (base.law === 'spike') ? Math.max(eL * 1.2, 2/base.mu) : eL * 2.4;
   let found = null;
   const grid = 7;
   for(let i=0;i<=grid;i++){
@@ -487,10 +534,14 @@ function syncSlider(numId, sId, toSlider, fromSlider){
 }
 
 function readParams(){
+  const law = $('law').value;
+  const mu = +$('mu').value;
+  const eps = +$('eps').value;
+  const h_low = +$('h_low').value;
+  const spike = (law === 'spike') ? spikeMoments(mu, eps, h_low) : null;
+  const v = spike ? spike.v : +$('v').value;
   return {
-    law: $('law').value,
-    mu: +$('mu').value,
-    v: +$('v').value,
+    law, mu, v, eps, h_low, spike,
     alpha: +$('alpha').value,
     beta: +$('beta').value,
     sigma: +$('sigma').value,
@@ -508,6 +559,9 @@ function updateDef(p){
     uniform: String.raw`h_t\sim\mathrm{Unif}` + ' (matched moments)',
     bernoulli: String.raw`h_t\in\{\mu-\sqrt{v},\,\mu+\sqrt{v}\}` + ' w.p. ' + String.raw`\tfrac12`,
     chisq: String.raw`h_t=c\cdot\chi^2_k` + ' (matched moments)',
+    spike: p.spike
+      ? String.raw`P(h=${fmt(p.spike.hHigh,2)})=\varepsilon,\; P(h=${fmt(p.spike.hLow,2)})=1-\varepsilon`
+      : 'rare spike',
     deterministic: String.raw`h_t\equiv\mu` + ' (additive Thm 1)',
   }[p.law];
   const eq = String.raw`X_{t+1}=(1-\eta h_t)\,X_t+\alpha X_t^3-\beta X_t^5+\sigma\xi_t`;
@@ -523,18 +577,38 @@ function updateDef(p){
     $('live_eq').textContent = eq;
     $('live_meta').textContent = lawTex;
   }
-  $('param_readout').innerHTML =
+  let readout =
     `<span><em>α</em> = <b>${fmt(p.alpha,3)}</b></span>` +
     `<span><em>β</em> = <b>${fmt(p.beta,3)}</b></span>` +
     `<span><em>σ</em> = <b>${fmt(p.sigma,3)}</b></span>` +
     `<span><em>η</em> = <b>${fmt(p.eta,3)}</b></span>` +
     `<span><em>μ</em> = <b>${fmt(p.mu,3)}</b></span>` +
     `<span><em>v</em> = <b>${fmt(p.v,4)}</b></span>`;
-  $('row_var').style.opacity = (p.law === 'deterministic') ? 0.4 : 1;
-  $('v_s').disabled = p.law === 'deterministic';
-  // highlight active tip
+  if(p.law === 'spike' && p.spike){
+    readout +=
+      `<span><em>ε</em> = <b>${fmt(p.eps,3)}</b></span>` +
+      `<span><em>h</em><sub>high</sub> = <b>${fmt(p.spike.hHigh,2)}</b></span>`;
+    $('spike_readout').innerHTML =
+      `Derived: \(h_{\\mathrm{high}}=${fmt(p.spike.hHigh,3)}\), \(v=${fmt(p.spike.v,3)}\). ` +
+      `Compare \(\\eta\) to \(2/\\mu=${fmt(2/p.mu)}\) vs \(2/h_{\\mathrm{high}}=${fmt(2/p.spike.hHigh)}\).`;
+    typesetMath($('spike_readout'));
+  }
+  $('param_readout').innerHTML = readout;
+
+  const isSpike = p.law === 'spike';
+  const isDet = p.law === 'deterministic';
+  $('spike_controls').style.display = isSpike ? 'block' : 'none';
+  $('row_var').style.opacity = (isDet || isSpike) ? 0.4 : 1;
+  $('v_s').disabled = isDet || isSpike;
+  $('v').disabled = isDet || isSpike;
+  if(isSpike) $('v').value = String(+p.v.toFixed(6));
+  $('hint_var').textContent = isSpike
+    ? 'Variance is implied by (μ, ε, h_low) for the rare-spike law.'
+    : 'Matched across laws. Small v ⇒ η_MS ≈ η_L ≈ 2/μ.';
+
   document.querySelectorAll('.tip').forEach(el => el.classList.remove('on'));
-  const tip = document.getElementById('tip_' + (p.law === 'deterministic' ? 'det' : 'stoch'));
+  const tipId = isDet ? 'tip_det' : (isSpike ? 'tip_spike' : 'tip_stoch');
+  const tip = document.getElementById(tipId);
   if (tip) tip.classList.add('on');
 }
 
@@ -553,10 +627,13 @@ function typesetMath(root){
 
 function computeEdges(p){
   const vEff = (p.law === 'deterministic') ? 0 : Math.max(p.v, 0);
+  const pEff = {...p, v: vEff};
   const eMS = etaMS(p.mu, vEff);
-  const eL = etaLyapunov(p.law === 'deterministic' ? 'deterministic' : p.law, p.mu, vEff, p.seed+1);
+  const eL = etaLyapunov(pEff, p.seed+1);
   const eDet = 2 / p.mu;
-  return {eMS, eL, eDet, vEff};
+  const eRare = (p.law === 'spike' && p.spike && p.spike.hHigh > 0)
+    ? 2 / p.spike.hHigh : NaN;
+  return {eMS, eL, eDet, eRare, vEff};
 }
 
 /* ===================== Drawing ===================== */
@@ -718,11 +795,27 @@ function schedule(){
   timer = setTimeout(runAll, 120);
 }
 
-function regimePill(eta, e){
+function regimePill(eta, e, law){
+  if(law === 'spike' && Number.isFinite(e.eDet) && eta < e.eDet){
+    if(eta < e.eMS) return ['stable', 'below η_MS · still ≪ 2/μ'];
+    if(Number.isFinite(e.eH) && eta >= e.eH) return ['bim', 'bimodal · past rare edge · before 2/μ'];
+    if(eta >= e.eL) return ['lyapu', 'past η_L (rare) · before 2/μ'];
+    return ['msu', 'past η_MS · before 2/μ'];
+  }
   if(eta < e.eMS) return ['stable', 'mean-square stable'];
   if(eta < e.eL) return ['msu', 'past η_MS · before η_L'];
   if(Number.isFinite(e.eH) && eta >= e.eH) return ['bim', 'past η̂_H · bimodal regime'];
   return ['lyapu', 'past η_L · broadening'];
+}
+
+function etaSliderRange(edges, law){
+  // Rare-spike: η_MS≈η_L≈2/h_high ≪ 2/μ — slider must reach the mean edge.
+  if(law === 'spike'){
+    const lo = 0.1 * Math.min(edges.eMS, edges.eRare || edges.eMS);
+    const hi = 1.05 * edges.eDet;
+    return {etaLo: Math.max(1e-4, lo), etaHi: Math.max(hi, edges.eL * 2)};
+  }
+  return {etaLo: 0.25 * edges.eMS, etaHi: 2.2 * edges.eL};
 }
 
 function runAll(){
@@ -732,27 +825,30 @@ function runAll(){
   updateDef(p);
   try{
     const edges = computeEdges(p);
-    // eta slider mapped across [0.3 η_MS, 2.2 η_L]
-    const etaLo = 0.25 * edges.eMS;
-    const etaHi = 2.2 * edges.eL;
+    const {etaLo, etaHi} = etaSliderRange(edges, p.law);
     // if user moved number, keep; slider sync separately below
 
-    const base = {...p, eMS: edges.eMS, eL: edges.eL, eDet: edges.eDet, v: edges.vEff};
+    const base = {...p, eMS: edges.eMS, eL: edges.eL, eDet: edges.eDet, eRare: edges.eRare, v: edges.vEff};
     // estimate η_H (skip if deterministic+σ=0 and below edge — still try)
     const eH = estimateEtaH(base, p.seed);
     edges.eH = eH;
     lastEdges = edges;
 
-    const Hcur = harmonicH(p.law === 'deterministic' ? 'deterministic' : p.law, p.mu, edges.vEff, p.eta, p.seed+5);
+    const Hcur = harmonicH({...p, v: edges.vEff}, p.eta, p.seed+5);
 
-    $('edges').innerHTML =
+    let edgeHtml =
       `<span class="chip ms">$\\eta_{\\mathrm{MS}}$ = <b>${fmt(edges.eMS)}</b></span>` +
-      `<span class="chip det">$2/\\mu$ = <b>${fmt(edges.eDet)}</b></span>` +
+      `<span class="chip det">$2/\\mu$ = <b>${fmt(edges.eDet)}</b></span>`;
+    if(Number.isFinite(edges.eRare)){
+      edgeHtml += `<span class="chip now">$2/h_{\\mathrm{high}}$ = <b>${fmt(edges.eRare)}</b></span>`;
+    }
+    edgeHtml +=
       `<span class="chip lyap">$\\eta_L$ = <b>${fmt(edges.eL)}</b></span>` +
       `<span class="chip harm">$\\hat\\eta_H$ = <b>${fmt(edges.eH)}</b></span>` +
       `<span class="chip">$H(\\eta)\\approx$ <b>${fmt(Hcur,2)}</b></span>`;
+    $('edges').innerHTML = edgeHtml;
 
-    const [cls, lab] = regimePill(p.eta, edges);
+    const [cls, lab] = regimePill(p.eta, edges, p.law);
     $('regime').innerHTML = `<span class="pill ${cls}">${lab}</span>`;
     typesetMath($('edges'));
     typesetMath($('regime'));
@@ -791,7 +887,13 @@ function runAll(){
 
     // Fig 1 strip
     const strip = $('strip'); strip.innerHTML = '';
-    const etas = [
+    const etas = (p.law === 'spike') ? [
+      ['0.5·2/h_hi', 0.5*(edges.eRare || edges.eMS)],
+      ['2/h_high', edges.eRare || edges.eMS],
+      ['0.175·2/μ', 0.175*edges.eDet],
+      ['0.5·2/μ', 0.5*edges.eDet],
+      ['2/μ', edges.eDet],
+    ] : [
       ['0.6 η_MS', 0.6*edges.eMS],
       ['0.5(η_MS+η_L)', 0.5*(edges.eMS+edges.eL)],
       ['η_L', edges.eL],
@@ -836,12 +938,18 @@ syncSlider('sigma', 'sigma_s',
   x => Math.round(x*400),
   s => s/400);
 
+syncSlider('eps', 'eps_s',
+  x => Math.max(1, Math.min(200, Math.round(x*1000))),
+  s => s/1000);
+syncSlider('h_low', 'h_low_s',
+  x => Math.max(0, Math.min(100, Math.round(x*100))),
+  s => s/100);
+
 $('eta_s').addEventListener('input', () => {
   // map slider using last edges if available
   const p = readParams();
   const e = lastEdges || computeEdges(p);
-  const etaLo = 0.25 * e.eMS;
-  const etaHi = 2.2 * e.eL;
+  const {etaLo, etaHi} = etaSliderRange(e, p.law);
   $('eta').value = String(+(etaLo + (etaHi-etaLo)*($('eta_s').value/1000)).toFixed(4));
   schedule();
 });
@@ -856,6 +964,8 @@ $('rerun').addEventListener('click', () => {
 
 const PRESETS = [
   {name: 'Gaussian default (screenshot)', law:'gaussian', mu:1, v:0.01, alpha:0.775, beta:-0.05, sigma:0, eta:2.821},
+  {name: 'Rare spike · before 2/μ', law:'spike', mu:1, v:49, eps:0.02, h_low:0, alpha:1, beta:0.8, sigma:0, eta:0.35},
+  {name: 'Rare spike · mean-field control', law:'deterministic', mu:1, v:0, alpha:1, beta:0.8, sigma:0, eta:0.35},
   {name: 'Bernoulli · past η_L', law:'bernoulli', mu:1, v:0.25, alpha:2.5, beta:2, sigma:0.04, eta:2.9},
   {name: 'Uniform · bimodal hunt', law:'uniform', mu:1, v:0.3, alpha:3, beta:2.5, sigma:0.05, eta:3.1},
   {name: 'Additive Thm 1 · clear lobes', law:'deterministic', mu:1, v:0, alpha:2.5, beta:1.2, sigma:0.06, eta:2.4},
@@ -873,9 +983,11 @@ PRESETS.forEach(pr => {
     $('mu').value = pr.mu; $('v').value = pr.v;
     $('alpha').value = pr.alpha; $('beta').value = pr.beta;
     $('sigma').value = pr.sigma; $('eta').value = pr.eta;
+    if(pr.eps != null) $('eps').value = pr.eps;
+    if(pr.h_low != null) $('h_low').value = pr.h_low;
     // sync sliders
-    ['mu','v','alpha','beta','sigma'].forEach(id => {
-      $(id).dispatchEvent(new Event('change'));
+    ['mu','v','alpha','beta','sigma','eps','h_low'].forEach(id => {
+      if($(id)) $(id).dispatchEvent(new Event('change'));
     });
     runAll();
   });

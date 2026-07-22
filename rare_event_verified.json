@@ -1,0 +1,35 @@
+{
+  "description": "Rare-spike curvature with \u03bc=E[h] fixed. \u03b7 < 2/\u03bc (linear mean-field stable) and \u03b7 large enough that the deterministic h\u2261\u03bc map has no nonzero fixed points, yet the spike law is clearly bimodal. Typical steps use h=0 (nonlinear \u00b1 wells); rare h=h_high kicks. lag-1 > 0 \u21d2 well-hopping / slow mixing, not classic flip period-2.",
+  "eps": 0.02,
+  "mu": 1.0,
+  "h_low": 0.0,
+  "h_high": 50.0,
+  "eta": 0.35,
+  "alpha": 1.0,
+  "beta": 0.8,
+  "sigma": 0.02,
+  "eta_mean": 2.0,
+  "eta_hi": 0.04,
+  "eta_mf_nofp": 0.3125,
+  "frac_of_2mu": 0.175,
+  "confirm_spike": {
+    "p0": 0.0,
+    "L": 3.379001428571426,
+    "R": 3.1722442857143043,
+    "bim": true,
+    "lag1": 0.9625000101720578,
+    "meanabs": 1.0830844740596812,
+    "std": 1.0866863638519877,
+    "nesc": 4801857
+  },
+  "confirm_meanfield": {
+    "p0": 13.138554047619044,
+    "L": 0.0,
+    "R": 0.0,
+    "bim": false,
+    "lag1": 0.6448517031225233,
+    "meanabs": 0.020690618467636358,
+    "std": 0.02599665997869521,
+    "nesc": 0
+  }
+}
