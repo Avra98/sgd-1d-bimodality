@@ -152,7 +152,7 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
   <div class="card">
     <h3>Curvature — tangent <span class="tag tagy klabel">h<sub>y,t</sub></span></h3>
     <div class="row yrow"><label>law</label><select id="lawY"></select></div>
-    <div class="row yrow"><label>mean <span class="k">μ<sub>y</sub></span></label><input type="range" id="muY" min="0.1" max="3" step="0.01" value="0.5"><span class="val" id="muYV"></span></div>
+    <div class="row yrow"><label>mean <span class="k">μ<sub>y</sub></span></label><input type="range" id="muY" min="0.1" max="3" step="0.01" value="1.14"><span class="val" id="muYV"></span></div>
     <div class="row yrow"><label>variance <span class="k">v<sub>y</sub></span></label><input type="range" id="vY" min="0" max="0.4" step="0.0005" value="0.0025"><span class="val" id="vYV"></span></div>
     <div class="row yrow rareY" hidden><label>rare prob <span class="k">ε</span></label><input type="range" id="epsY" min="0.005" max="0.3" step="0.005" value="0.05"><span class="val" id="epsYV"></span></div>
     <div class="row yrow rareY" hidden><label>typical <span class="k">h<sub>low</sub></span></label><input type="range" id="lowY" min="0" max="1.5" step="0.01" value="0.2"><span class="val" id="lowYV"></span></div>
@@ -162,7 +162,7 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
     <h3>Nonlinearity &amp; coupling</h3>
     <div class="row"><label>coupling <span class="k">β</span></label><input type="range" id="beta" min="-1" max="1" step="0.01" value="0.3"><span class="val" id="betaV"></span></div>
     <div class="row"><label>quartic <span class="k">c<sub>4z</sub></span></label><input type="range" id="c4z" min="-3" max="3" step="0.01" value="-0.75"><span class="val" id="c4zV"></span></div>
-    <div class="row yrow"><label>quartic <span class="k">c<sub>4y</sub></span></label><input type="range" id="c4y" min="-3" max="3" step="0.01" value="0"><span class="val" id="c4yV"></span></div>
+    <div class="row yrow"><label>quartic <span class="k">c<sub>4y</sub></span></label><input type="range" id="c4y" min="-3" max="3" step="0.01" value="-0.87"><span class="val" id="c4yV"></span></div>
     <div class="row"><label>sextic <span class="k">c<sub>6z</sub></span></label><input type="range" id="c6z" min="0" max="20" step="0.1" value="6"><span class="val" id="c6zV"></span></div>
     <div class="row yrow"><label>sextic <span class="k">c<sub>6y</sub></span></label><input type="range" id="c6y" min="0" max="20" step="0.1" value="6"><span class="val" id="c6yV"></span></div>
     <div class="note-sm">\(c_{4z}<0\): sub-quartic flip drive. \(c_{4z}>0\): super-quartic — oscillation can survive only if \(2\beta^2/\mu_y - c_{4z}/6>0\) (preset ▸ rescued by coupling).</div>
@@ -733,7 +733,7 @@ function drawStripPanel(cv,res){
 
 /* ---------------- presets ---------------- */
 const PRESETS=[
- {n:"Gaussian · clean 2 lobes",p:{lawZ:"gauss",lawY:"gauss",muZ:1,vZ:0.0025,muY:0.5,vY:0.0025,eta:2.5,beta:0.3,c4z:-0.75,c4y:0,c6z:6,c6y:6,sz:0.01,sy:0.01}},
+ {n:"Gaussian · clean 2 lobes",p:{lawZ:"gauss",lawY:"gauss",muZ:1,vZ:0.0025,muY:1.14,vY:0.0025,eta:2.5,beta:0.3,c4z:-0.75,c4y:-0.87,c6z:6,c6y:6,sz:0.01,sy:0.01}},
  {n:"Gaussian · v too big (washout)",p:{lawZ:"gauss",lawY:"gauss",muZ:1,vZ:0.05,muY:0.5,vY:0.0025,eta:2.5,beta:0.3,c4z:-0.75,c4y:0,c6z:6,c6y:6,sz:0.01,sy:0.01}},
  {n:"Deterministic flip (Thm 1)",p:{lawZ:"det",lawY:"det",muZ:1,vZ:0,muY:0.5,vY:0,eta:2.35,beta:0.3,c4z:-0.75,c4y:0,c6z:6,c6y:6,sz:0.02,sy:0.01}},
  {n:"Uniform curvature",p:{lawZ:"uniform",lawY:"uniform",muZ:1,vZ:0.01,muY:0.5,vY:0.005,eta:2.5,beta:0.3,c4z:-0.75,c4y:0,c6z:6,c6y:6,sz:0.01,sy:0.01}},
