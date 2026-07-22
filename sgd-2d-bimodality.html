@@ -2,1137 +2,790 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="color-scheme" content="light dark">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>2-D SGD · sharp–tangent coupling beyond stochastic stability</title>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
-<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
-<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<title>2-D SGD · iterate shape beyond stochastic stability</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
 <style>
-  :root{
-    --bg:#f7f6f2; --surface:#fffcf7; --ink:#141311; --ink2:#4a4843; --muted:#7a776f;
-    --grid:#e4e1d8; --axis:#c8c4b8; --border:rgba(20,19,17,.12);
-    --accent:#1f6fd2; --ms:#1f6fd2; --lyap:#c98500; --harm:#c23b3b; --det:#0a7a2f;
-    --tang:#7a4fc9;
-    --chipbg:rgba(20,19,17,.05); --good:#0a7a2f; --warn:#c98500; --crit:#c23b3b; --now:#d45a1a;
-    --tip:#eef5ff; --tipborder:#c7daf5;
-  }
-  @media (prefers-color-scheme: dark){
-    :root{
-      --bg:#10100f; --surface:#1a1a18; --ink:#f4f2ea; --ink2:#c4c1b6; --muted:#8d8a80;
-      --grid:#2c2b27; --axis:#3a3933; --border:rgba(255,255,255,.10);
-      --accent:#4d8fe8; --ms:#4d8fe8; --lyap:#e0a53a; --harm:#e06666; --det:#3aa85a;
-      --tang:#a98ae8;
-      --chipbg:rgba(255,255,255,.06); --tip:#182433; --tipborder:#2a4668;
-    }
-  }
-  *{box-sizing:border-box}
-  body{background:var(--bg); color:var(--ink);
-    font:15px/1.55 "Source Serif 4", Georgia, "Times New Roman", serif; margin:0; padding:0 18px 72px;}
-  .sans, button, input, select, label, .chip, .pill, .eyebrow, .cap, .row label, .presets, .legend, .ttl, .param-readout, .knob-h {
-    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;}
-  .mono, code, .num{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}
-  header{max-width:1180px; margin:28px auto 18px;}
-  .eyebrow{font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted); margin:0 0 8px}
-  h1{font-size:28px; line-height:1.2; margin:0; font-weight:650; letter-spacing:-.02em}
-  h1 .sub{display:block; margin-top:6px; font-size:16px; font-weight:400; color:var(--ink2)}
-  .hero-eq{margin:18px 0 10px; padding:14px 16px; background:var(--surface);
-    border:1px solid var(--border); border-radius:14px; overflow-x:auto;}
-  .lede{max-width:85ch; color:var(--ink2); font-size:15px; margin:0}
-  main{max-width:1180px; margin:0 auto;}
-  .layout{display:grid; grid-template-columns:340px 1fr; gap:18px; align-items:start}
-  @media (max-width:980px){ .layout{grid-template-columns:1fr} }
-  .side, .charts{display:flex; flex-direction:column; gap:14px}
-  .card{background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:16px 16px 14px;}
-  .card h2{margin:0 0 4px; font-size:14px; font-weight:700; letter-spacing:.01em;
-    font-family:ui-sans-serif,system-ui,sans-serif; text-transform:uppercase; color:var(--ink)}
-  .card h3{margin:14px 0 6px; font-size:12px; font-weight:700; letter-spacing:.08em;
-    text-transform:uppercase; color:var(--muted); font-family:ui-sans-serif,system-ui,sans-serif}
-  .card h3:first-child{margin-top:0}
-  .cap{margin:0 0 10px; font-size:12.5px; color:var(--muted); line-height:1.4}
-  .row{display:flex; align-items:center; justify-content:space-between; gap:8px; margin:4px 0}
-  .row label{font-size:13px; color:var(--ink2)}
-  .row input[type=number]{width:100px; padding:5px 8px; border:1px solid var(--axis); border-radius:8px;
-    background:var(--bg); color:var(--ink); font:12.5px ui-monospace,Menlo,Consolas,monospace; text-align:right}
-  .row select{padding:5px 8px; border:1px solid var(--axis); border-radius:8px;
-    background:var(--bg); color:var(--ink); font-size:12.5px; max-width:58%}
-  input[type=range]{width:100%; margin:2px 0 10px; accent-color:var(--accent)}
-  .hint{font-size:11.5px; color:var(--muted); margin:-4px 0 10px; line-height:1.35}
-  .mdef{background:var(--chipbg); border-radius:12px; padding:10px 12px; margin:0 0 12px}
-  .live-eq{overflow-x:auto}
-  .live-meta{margin-top:6px; font-size:13px; color:var(--ink2)}
-  .param-readout{display:flex; flex-wrap:wrap; gap:8px; margin-top:10px}
-  .param-readout span{background:var(--bg); border:1px solid var(--border); border-radius:999px;
-    padding:3px 9px; font-size:12px; color:var(--ink2)}
-  .param-readout b{color:var(--ink)}
-  .param-readout em{font-style:normal; font-family:KaTeX_Math, Georgia, serif}
-  .chips{display:flex; flex-wrap:wrap; gap:6px; margin-top:4px}
-  .chip{background:var(--chipbg); border-radius:8px; padding:4px 9px; font-size:12px; color:var(--ink2)}
-  .chip b{color:var(--ink); font-weight:650}
-  .chip.ms b{color:var(--ms)} .chip.lyap b{color:var(--lyap)} .chip.harm b{color:var(--harm)} .chip.det b{color:var(--det)}
-  .chip.now b{color:var(--now)} .chip.tang b{color:var(--tang)}
-  .chip.ok{outline:1px solid var(--good)} .chip.bad{outline:1px solid var(--crit)}
-  .pill{border-radius:999px; padding:4px 11px; font:650 12px system-ui,sans-serif; color:#fff; display:inline-block}
-  .pill.stable{background:var(--good)} .pill.msu{background:var(--warn)} .pill.lyapu{background:var(--now)} .pill.bim{background:var(--crit)}
-  .pill.tangu{background:var(--tang)}
-  .presets{display:flex; flex-wrap:wrap; gap:6px}
-  .presets button, .linkbtn, .runbtn{
-    border:1px solid var(--axis); background:var(--bg); color:var(--ink);
-    border-radius:9px; padding:7px 11px; font-size:12.5px; cursor:pointer}
-  .presets button:hover, .linkbtn:hover{border-color:var(--accent); color:var(--accent)}
-  .runbtn{background:var(--accent); color:#fff; border-color:transparent; font-weight:650}
-  .runbtn:hover{filter:brightness(1.06); color:#fff}
-  .btnrow{display:flex; gap:8px; margin-top:10px}
-  canvas.plot{width:100%; display:block; touch-action:none; border-radius:8px; background:var(--bg)}
-  .strip{display:grid; grid-template-columns:repeat(5,1fr); gap:8px}
-  @media (max-width:700px){ .strip{grid-template-columns:1fr 1fr} }
-  .strip .mini{border:1px solid var(--border); border-radius:10px; padding:6px; background:var(--bg)}
-  .strip .mini .ttl{font-size:11px; color:var(--muted); margin:0 0 2px}
-  .strip .mini .ttl b{color:var(--ink)}
-  .twocol{display:grid; grid-template-columns:1fr 1fr; gap:12px}
-  @media (max-width:700px){ .twocol{grid-template-columns:1fr} }
-  .legend{display:flex; flex-wrap:wrap; gap:10px; font-size:12px; color:var(--ink2); margin-top:8px}
-  .legend i{display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:4px; vertical-align:middle}
-  details.guide{border:1px solid var(--border); border-radius:14px; background:var(--surface); padding:0}
-  details.guide > summary{cursor:pointer; list-style:none; padding:14px 16px; font:700 13px ui-sans-serif,system-ui,sans-serif;
-    letter-spacing:.04em; text-transform:uppercase}
-  details.guide > summary::-webkit-details-marker{display:none}
-  details.guide[open] > summary{border-bottom:1px solid var(--border)}
-  .guide-body{padding:14px 16px 16px}
-  .guide-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px}
-  @media (max-width:700px){ .guide-grid{grid-template-columns:1fr} }
-  .knob{border:1px solid var(--border); border-radius:12px; padding:10px 12px; background:var(--bg)}
-  .knob-h{font-size:13px; font-weight:700; margin:0 0 4px; color:var(--ink)}
-  .knob p{margin:0; font-size:13px; color:var(--ink2); line-height:1.45}
-  .theory{font-size:14px; color:var(--ink2)}
-  .theory .eq{margin:10px 0; overflow-x:auto}
-  footer{max-width:1180px; margin:34px auto 0; font-size:12.5px; color:var(--muted);
-    font-family:ui-sans-serif,system-ui,sans-serif}
-  footer a{color:var(--accent); text-decoration:none}
-  footer a:hover{text-decoration:underline}
+:root{
+  --bg:#0b1120; --panel:#111a2e; --panel2:#0e1626; --line:#22304c; --line2:#1a2740;
+  --ink:#dbe4f3; --dim:#8ea0bf; --faint:#5c6d8c;
+  --z:#6fb3ff; --zsoft:#2a6bb0; --y:#ffb35c; --ysoft:#a86a2a;
+  --ms:#4fd8c4; --lyap:#b48cff; --harm:#ff7a9e; --edge0:#7f92b3;
+  --ok:#5fd08a; --warn:#ffd166; --bad:#ff7a9e;
+  --serif:"STIX Two Text","Iowan Old Style",Georgia,"Times New Roman",serif;
+  --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14.5px;line-height:1.5}
+a{color:var(--z)}
+.wrap{max-width:1280px;margin:0 auto;padding:26px 22px 80px}
+header{border-bottom:1px solid var(--line);padding-bottom:20px;margin-bottom:22px}
+.eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+h1{font-family:var(--serif);font-weight:600;font-size:30px;margin:8px 0 2px;letter-spacing:.01em}
+h1 .thin{color:var(--dim);font-weight:400}
+.sub{color:var(--dim);max-width:74ch;margin:6px 0 12px}
+.eqbox{font-size:15px;background:var(--panel2);border:1px solid var(--line2);border-radius:10px;padding:12px 16px;overflow-x:auto}
+.eqbox .note{font-size:12.5px;color:var(--dim);margin-top:6px}
+.cols{display:grid;grid-template-columns:330px 1fr;gap:20px;align-items:start}
+@media(max-width:980px){.cols{grid-template-columns:1fr}}
+.side{position:sticky;top:14px;display:flex;flex-direction:column;gap:12px;max-height:calc(100vh - 28px);overflow-y:auto;padding-right:2px}
+@media(max-width:980px){.side{position:static;max-height:none}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:13px 14px}
+.card h3{margin:0 0 9px;font-family:var(--mono);font-size:11.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--dim);font-weight:600}
+.card h3 .tag{float:right;letter-spacing:0;text-transform:none}
+.tagz{color:var(--z)} .tagy{color:var(--y)}
+.row{display:flex;align-items:center;gap:8px;margin:7px 0}
+.row label{flex:0 0 108px;font-size:13px;color:var(--dim)}
+.row label .k{font-family:var(--serif);font-style:italic;color:var(--ink)}
+.row input[type=range]{flex:1;accent-color:var(--z);min-width:0}
+.row.yrow input[type=range]{accent-color:var(--y)}
+.row .val{font-family:var(--mono);font-size:12px;flex:0 0 62px;text-align:right;color:var(--ink)}
+select,input[type=number],input[type=text]{background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:4px 7px;font-family:var(--mono);font-size:12.5px}
+select{width:100%}
+button{background:#1b2a47;border:1px solid #2c4270;color:var(--ink);border-radius:8px;padding:7px 12px;font-family:var(--mono);font-size:12.5px;cursor:pointer}
+button:hover{background:#22345a}
+button.primary{background:#1e3f6e;border-color:#3a67a8}
+button.primary:hover{background:#265089}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--z);outline-offset:1px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips button{padding:5px 9px;font-size:11.5px;border-radius:999px;background:var(--panel2)}
+.chips button:hover{border-color:var(--z)}
+.etacard{border-color:#2c4270}
+.etaslider{width:100%;accent-color:#e8eefb}
+.ladder{position:relative;height:14px;border-radius:4px;overflow:hidden;margin:6px 0 2px;border:1px solid var(--line2);background:var(--panel2)}
+.ladder .band{position:absolute;top:0;bottom:0}
+.ladder .tick{position:absolute;top:0;bottom:0;width:2px}
+.etalegend{display:flex;gap:12px;flex-wrap:wrap;font-family:var(--mono);font-size:10.5px;color:var(--dim);margin-top:5px}
+.etalegend span i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+.readouts{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px}
+@media(max-width:900px){.readouts{grid-template-columns:1fr}}
+.ro table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px}
+.ro td{padding:2.5px 0;border-bottom:1px dotted var(--line2)}
+.ro td:last-child{text-align:right;color:var(--ink)}
+.ro td:first-child{color:var(--dim)}
+.badge{display:inline-block;font-family:var(--mono);font-size:11px;border-radius:999px;padding:2px 9px;border:1px solid var(--line)}
+.badge.ok{color:var(--ok);border-color:#2c5a41}
+.badge.warn{color:var(--warn);border-color:#6b5a26}
+.badge.bad{color:var(--bad);border-color:#6b2c40}
+.badge.z{color:var(--z);border-color:#28477a}
+.corner{display:grid;grid-template-columns:1fr 130px;grid-template-rows:120px 1fr;gap:6px}
+.corner .cell{background:var(--panel2);border:1px solid var(--line2);border-radius:10px;overflow:hidden;position:relative}
+.corner canvas{display:block;width:100%;height:100%}
+.corner .lbl{position:absolute;font-family:var(--mono);font-size:10.5px;color:var(--faint);pointer-events:none}
+.plotcard h3{margin-bottom:10px}
+.minirow{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-top:8px}
+.mini{background:var(--panel2);border:1px solid var(--line2);border-radius:8px;padding:4px}
+.mini canvas{display:block;width:100%;height:74px}
+.mini .cap{font-family:var(--mono);font-size:9.5px;color:var(--dim);text-align:center;margin-top:3px;white-space:nowrap;overflow:hidden}
+.traj2{display:grid;grid-template-rows:150px 90px;gap:6px}
+.traj2 .cell{background:var(--panel2);border:1px solid var(--line2);border-radius:10px;overflow:hidden}
+.traj2 canvas{display:block;width:100%;height:100%}
+.note-sm{font-size:12.5px;color:var(--dim);margin-top:8px}
+.footer{margin-top:26px;color:var(--faint);font-size:12.5px;border-top:1px solid var(--line);padding-top:14px}
+.statusline{font-family:var(--mono);font-size:11.5px;color:var(--dim);min-height:16px;margin-top:6px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.klabel{font-family:var(--serif);font-style:italic}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
 </style>
 </head>
 <body>
+<div class="wrap">
 
 <header>
-  <p class="eyebrow sans">Interactive lab · stochastic stability · 2-D sharp–tangent cocycle · <a href="index.html" style="color:var(--accent);text-decoration:none">← 1-D lab</a></p>
-  <h1>The shape of SGD iterates in 2-D
-    <span class="sub">Sharp coordinate \(z\) with sampled curvature, coupled to a tangent coordinate \(y\) (Eq. 37 of the draft)</span>
-  </h1>
-  <div class="hero-eq">
-    $$L_t=\tfrac{h_t}{2}z^2+\tfrac{c_4}{24}z^4+\tfrac{c_6}{6}z^6+\tfrac{g_t}{2}y^2+\beta z^2 y
-    \;\;\Longrightarrow\;\;
-    \begin{aligned}
-    z_{t+1}&=z_t-\eta\big[(h_t+2\beta y_t)\,z_t+\tfrac{c_4}{6}z_t^3+c_6 z_t^5\big]+\sigma_z\xi_t\\
-    y_{t+1}&=y_t-\eta\big[g_t\,y_t+\beta z_t^2\big]+\sigma_y\xi'_t
-    \end{aligned}$$
+  <div class="eyebrow">Interactive lab · stochastic stability · 2-D coupled cocycle · companion to the 1-D lab</div>
+  <h1>The shape of SGD iterates in 2-D <span class="thin">— sharp coordinate, tangent coordinate, and their coupling</span></h1>
+  <p class="sub">The joint predictor model of Eq. (37): a sharp coordinate \(z\) at the edge of stability and a tangent
+  coordinate \(y\) below it, coupled through \(\beta z^2 y\). Curvatures \(h_{z,t},h_{y,t}\) are redrawn every step from
+  chosen laws. Drag \(\eta\) across the per-direction stability ladder and watch the joint quasi-stationary law go
+  spike → broadened core → two lobes — or four, when both directions cross their edges.</p>
+  <div class="eqbox" id="modelEq">
+  $$z_{t+1}=z_t-\eta\Big[\big(h_{z,t}+2\beta y_t\big)z_t+\tfrac{c_{4z}}{6}z_t^{3}+\tfrac{c_{6z}}{120}z_t^{5}\Big]+\sigma_z\xi_t,
+  \qquad
+  y_{t+1}=y_t-\eta\Big[h_{y,t}\,y_t+\beta z_t^{2}+\tfrac{c_{4y}}{6}y_t^{3}+\tfrac{c_{6y}}{120}y_t^{5}\Big]+\sigma_y\xi'_t$$
+  <div class="note">Loss convention \(L=\tfrac{h_z}{2}z^2+\tfrac{c_{4z}}{24}z^4+\tfrac{c_{6z}}{720}z^6+\tfrac{h_y}{2}y^2+\tfrac{c_{4y}}{24}y^4+\tfrac{c_{6y}}{720}y^6+\beta z^2 y\). Sub-quartic \(c_{4z}<0\) drives the flip; the sextic term confines; the coupling feeds oscillation energy \(\nu^2+V\) into \(\bar y\), which feeds back into the effective sharpness \(h_z+2\beta\bar y\).</div>
   </div>
-  <p class="lede">
-    Both curvatures are redrawn each step: sharp \(h_t\) with mean \(\mu_z\), variance \(v_z\); tangent \(g_t\)
-    with mean \(\mu_y\), variance \(v_y\). The coupling \(\beta z^2 y\) makes the <em>effective</em> sharp curvature
-    \(h_t+2\beta y_t\): oscillation energy pushes \(\bar y\) negative, which feeds back into the multiplier
-    distribution — a self-consistent Lyapunov edge instead of the fixed 1-D one. \(y\) is the representative
-    tangent coordinate (\(\beta\) aggregates \(\sum_i\beta_i\)).
-  </p>
 </header>
 
-<main>
-<details class="guide" open>
-  <summary>What each coefficient does</summary>
-  <div class="guide-body">
-    <div class="guide-grid">
-      <div class="knob">
-        <div class="knob-h">\(\eta\) — step size</div>
-        <p>Primary control. The bare edges \(\eta_{\mathrm{MS}}\), \(\eta_L\), \(2/\mu_z\) are computed from the law of \(h\) alone; the coupling shifts the live Lyapunov exponent \(\hat\chi_{\mathrm{eff}}\) below the bare \(\hat\chi\).</p>
-      </div>
-      <div class="knob">
-        <div class="knob-h">\(\mu_z, v_z\) and \(\mu_y, v_y\) — the two curvature laws</div>
-        <p>Spectral conditions of Eq. 37: \(\eta\mu_z\gtrless 2\) (sharp direction at/past the edge) and \(\eta\mu_y&lt;2\) (tangent stable). Each direction can draw from a different law — that is the point of the 2-D lab.</p>
-      </div>
-      <div class="knob">
-        <div class="knob-h">\(\beta\) — cross coupling \(z^2y\)</div>
-        <p>Drives \(\bar y_\star=-\tfrac{\beta}{\mu_y}\,\mathbb{E}[z^2]\) (self-stabilization) and injects tangent fluctuations into the sharp multiplier. \(\beta=0\) decouples: the \(z\)-marginal reproduces the 1-D lab exactly.</p>
-      </div>
-      <div class="knob">
-        <div class="knob-h">\(c_4\) — quartic loss coefficient</div>
-        <p>\(c_4&lt;0\): supercritical flip (\(D=-\mu_z c_4&gt;0\)), small stable lobes. \(c_4&gt;0\): subcritical in 1-D, but the draft predicts coupling can still sustain oscillation when \(2\beta^2/\mu_y&gt;c_4/6\) — test it here.</p>
-      </div>
-      <div class="knob">
-        <div class="knob-h">\(c_6\) — sextic confinement</div>
-        <p>Outer wall (gradient term \(c_6 z^5\)). Keep \(c_6&gt;0\) so ejected mass pools in lobes instead of escaping; the update is also clipped at \(|\Delta|\le\) clip, as in the multiplicative note.</p>
-      </div>
-      <div class="knob">
-        <div class="knob-h">\(\sigma_z,\ \sigma_y\) — additive noise</div>
-        <p>\(\sigma_z\) dresses the \(z\) lobes (additive theory). \(\sigma_y\) sets the tangent variance \(V_{y\star}=\sigma_y^2/[\eta\mu_y(2-\eta\mu_y)]\), which widens the sharp multiplier distribution through \(2\beta y\).</p>
-      </div>
-    </div>
-  </div>
-</details>
+<div class="cols">
 
-<section class="layout" style="margin-top:14px">
-  <div class="side">
-    <div class="card">
-      <h2>Controls</h2>
-      <div class="mdef" id="mdef"></div>
+<!-- ============ CONTROLS ============ -->
+<div class="side">
 
-      <h3>Sharp curvature \(h_t\)</h3>
-      <div class="row"><label for="law_z">law of \(h_t\)</label>
-        <select id="law_z">
-          <option value="gaussian" selected>Gaussian</option>
-          <option value="uniform">Uniform</option>
-          <option value="bernoulli">Bernoulli (two-point)</option>
-          <option value="chisq">scaled χ²</option>
-          <option value="spike">rare spike (skewed)</option>
-          <option value="deterministic">deterministic</option>
-        </select>
-      </div>
-      <div class="row"><label for="mu_z">mean \(\mu_z\)</label><input id="mu_z" type="number" step="any" value="1"></div>
-      <input id="mu_z_s" type="range" min="20" max="300" value="100" aria-label="mu_z slider">
-      <div class="row" id="row_vz"><label for="v_z">variance \(v_z\)</label><input id="v_z" type="number" step="any" value="0.81"></div>
-      <input id="v_z_s" type="range" min="0" max="300" value="162" aria-label="v_z slider">
-      <div id="spike_controls" style="display:none">
-        <div class="row"><label for="eps">rare prob \(\varepsilon\)</label><input id="eps" type="number" step="any" min="0.001" max="0.5" value="0.02"></div>
-        <input id="eps_s" type="range" min="1" max="200" value="20" aria-label="epsilon slider">
-        <div class="row"><label for="h_low">typical \(h_{\mathrm{low}}\)</label><input id="h_low" type="number" step="any" value="0"></div>
-        <input id="h_low_s" type="range" min="0" max="100" value="0" aria-label="h_low slider">
-        <p class="hint" id="spike_readout">\(h_{\mathrm{high}}\) and \(v_z\) fixed by \((\mu_z,\varepsilon,h_{\mathrm{low}})\).</p>
-      </div>
-
-      <h3>Tangent curvature \(g_t\)</h3>
-      <div class="row"><label for="law_y">law of \(g_t\)</label>
-        <select id="law_y">
-          <option value="deterministic" selected>deterministic</option>
-          <option value="gaussian">Gaussian</option>
-          <option value="uniform">Uniform</option>
-          <option value="bernoulli">Bernoulli (two-point)</option>
-          <option value="chisq">scaled χ²</option>
-        </select>
-      </div>
-      <div class="row"><label for="mu_y">mean \(\mu_y\)</label><input id="mu_y" type="number" step="any" value="0.5"></div>
-      <input id="mu_y_s" type="range" min="5" max="300" value="50" aria-label="mu_y slider">
-      <div class="row"><label for="v_y">variance \(v_y\)</label><input id="v_y" type="number" step="any" value="0"></div>
-      <input id="v_y_s" type="range" min="0" max="300" value="0" aria-label="v_y slider">
-      <p class="hint" id="hint_tang">Spectral condition of Eq. 37: keep \(\eta\mu_y &lt; 2\) (tangent stable).</p>
-
-      <h3>Coupling &amp; nonlinearity</h3>
-      <div class="row"><label for="bcoup">\(\beta\) (coupling)</label><input id="bcoup" type="number" step="any" value="0.6"></div>
-      <input id="bcoup_s" type="range" min="-200" max="200" value="24" aria-label="beta slider">
-      <p class="hint">\(\beta=0\) ⇒ 1-D lab on the \(z\)-marginal. Sign of \(\beta\) is immaterial for \(\bar y_\star\)-feedback direction (it enters as \(\beta^2\)) but flips \(\bar y\).</p>
-      <div class="row"><label for="c4">\(c_4\) (quartic)</label><input id="c4" type="number" step="any" value="-6"></div>
-      <input id="c4_s" type="range" min="-200" max="200" value="-60" aria-label="c4 slider">
-      <div class="row"><label for="c6">\(c_6\) (confinement)</label><input id="c6" type="number" step="any" value="2"></div>
-      <input id="c6_s" type="range" min="0" max="200" value="40" aria-label="c6 slider">
-      <div class="row"><label for="sig_z">\(\sigma_z\) (noise on z)</label><input id="sig_z" type="number" step="any" value="0"></div>
-      <input id="sig_z_s" type="range" min="0" max="200" value="0" aria-label="sigma_z slider">
-      <div class="row"><label for="sig_y">\(\sigma_y\) (noise on y)</label><input id="sig_y" type="number" step="any" value="0"></div>
-      <input id="sig_y_s" type="range" min="0" max="200" value="0" aria-label="sigma_y slider">
-
-      <h3>Step size</h3>
-      <div class="row"><label for="eta">\(\eta\)</label><input id="eta" type="number" step="any" value="2.0"></div>
-      <input id="eta_s" type="range" min="0" max="1000" value="500" aria-label="eta slider">
-      <div class="cap" id="eta_cap">drag across the \(z\)-edges</div>
-
-      <h3>Simulation</h3>
-      <div class="row"><label for="npart">particles</label><input id="npart" type="number" min="200" max="20000" step="100" value="3000"></div>
-      <div class="row"><label for="steps">steps \(T\)</label><input id="steps" type="number" min="500" max="100000" step="500" value="6000"></div>
-      <div class="row"><label for="burn">burn-in</label><input id="burn" type="number" min="0" max="50000" step="100" value="2000"></div>
-      <div class="row"><label for="clip">step clip</label><input id="clip" type="number" min="0" step="any" value="0.8"></div>
-      <div class="row"><label for="seed">seed</label><input id="seed" type="number" min="0" max="1e9" step="1" value="0"></div>
-      <div class="btnrow">
-        <button class="runbtn" id="run">Run</button>
-        <button class="linkbtn" id="rerun">re-seed &amp; run</button>
-      </div>
-    </div>
-
-    <div class="card theory">
-      <h2>Edges &amp; live diagnostics</h2>
-      <p class="cap">Bare edges from the law of \(h\); effective quantities measured on the running cloud.</p>
-      <div class="eq">$$\hat\chi=\overline{\ln|1-\eta h_t|},\qquad
-        \hat\chi_{\mathrm{eff}}=\overline{\ln|1-\eta(h_t+2\beta y_t)|}$$</div>
-      <div class="eq">$$\bar y_\star=-\tfrac{\beta}{\mu_y}\mathbb{E}[z^2],\qquad
-        \nu_\star^2=\frac{\mu_z-2/\eta}{2\beta^2/\mu_y-c_4/6}\ \ (\text{if }>0)$$</div>
-      <div class="chips" id="edges"></div>
-      <div style="margin-top:10px" id="regime"></div>
-      <div class="chips" style="margin-top:8px" id="stats"></div>
-    </div>
-
-    <div class="card">
-      <h2>Presets — spectral-condition matrix</h2>
-      <p class="cap">Each preset pins a distinct \((\eta\mu_z,\eta\mu_y,v_z,v_y,\beta,c_4)\) regime.</p>
-      <div class="presets" id="presets"></div>
-    </div>
+  <div class="card">
+    <h3>Presets</h3>
+    <div class="chips" id="presetChips"></div>
+    <div class="note-sm" style="margin-top:7px">Start from <b>Gaussian · clean 2 lobes</b>, then move only \(\eta\). Keep \(v_z/\mu_z^2\) very small for Gaussian if you want clean lobes (variance ≈ 0.0025, i.e. s.d. 0.05 — not v = 1).</div>
   </div>
 
-  <div class="charts">
-    <div class="card">
-      <h2>Phase plane \((z,y)\)</h2>
-      <p class="cap" id="scat_cap">post-burn-in particle cloud; red ✕ = predicted lobe centers \((\pm\nu_\star,\bar y_\star)\)</p>
-      <canvas class="plot" id="cscat" width="900" height="380" role="img" aria-label="phase plane"></canvas>
-      <div class="legend">
-        <span><i style="background:var(--accent)"></i>particle cloud</span>
-        <span><i style="background:var(--harm)"></i>predicted \((\pm\nu_\star,\bar y_\star)\)</span>
-        <span><i style="background:var(--tang)"></i>measured \(\bar y\)</span>
-      </div>
+  <div class="card etacard">
+    <h3>Step size <span class="tag" style="font-family:var(--serif);font-style:italic;font-size:14px">η</span></h3>
+    <div class="row"><label><span class="k">η</span></label>
+      <input class="etaslider" type="range" id="eta" min="0.1" max="4" step="0.005" value="2.5">
+      <span class="val" id="etaV">2.500</span></div>
+    <div class="ladder" id="ladderZ" title="stability ladder for the sharp (z) direction"></div>
+    <div class="ladder" id="ladderY" title="stability ladder for the tangent (y) direction" style="height:8px;opacity:.85"></div>
+    <div class="etalegend">
+      <span><i style="background:#123c3a"></i>MS-stable</span>
+      <span><i style="background:#3a2d14"></i>post-MS</span>
+      <span><i style="background:#3c2440"></i>post-Lyapunov</span>
+      <span><i style="background:#47182b"></i>post-harmonic</span>
+      <span><i style="background:var(--ms)"></i>η<sub>MS</sub></span>
+      <span><i style="background:var(--edge0)"></i>2/μ</span>
+      <span><i style="background:var(--lyap)"></i>η<sub>L</sub></span>
+      <span><i style="background:var(--harm)"></i>η̂<sub>H</sub></span>
     </div>
+    <div class="note-sm">Top rail: \(z\) ladder · bottom rail: \(y\) ladder. Four lobes need the marker past <i>both</i> Lyapunov edges.</div>
+  </div>
 
-    <div class="card">
-      <h2>Marginals</h2>
-      <div class="twocol">
-        <div>
-          <p class="cap">sharp coordinate \(z\)</p>
-          <canvas class="plot" id="chist_z" width="440" height="300" role="img" aria-label="z histogram"></canvas>
-        </div>
-        <div>
-          <p class="cap">tangent coordinate \(y\)</p>
-          <canvas class="plot" id="chist_y" width="440" height="300" role="img" aria-label="y histogram"></canvas>
+  <div class="card">
+    <h3>Curvature — sharp <span class="tag tagz klabel">h<sub>z,t</sub></span></h3>
+    <div class="row"><label>law</label><select id="lawZ"></select></div>
+    <div class="row"><label>mean <span class="k">μ<sub>z</sub></span></label><input type="range" id="muZ" min="0.2" max="3" step="0.01" value="1"><span class="val" id="muZV"></span></div>
+    <div class="row"><label>variance <span class="k">v<sub>z</sub></span></label><input type="range" id="vZ" min="0" max="0.4" step="0.0005" value="0.0025"><span class="val" id="vZV"></span></div>
+    <div class="row rareZ" hidden><label>rare prob <span class="k">ε</span></label><input type="range" id="epsZ" min="0.005" max="0.3" step="0.005" value="0.05"><span class="val" id="epsZV"></span></div>
+    <div class="row rareZ" hidden><label>typical <span class="k">h<sub>low</sub></span></label><input type="range" id="lowZ" min="0" max="1.5" step="0.01" value="0.2"><span class="val" id="lowZV"></span></div>
+  </div>
+
+  <div class="card">
+    <h3>Curvature — tangent <span class="tag tagy klabel">h<sub>y,t</sub></span></h3>
+    <div class="row yrow"><label>law</label><select id="lawY"></select></div>
+    <div class="row yrow"><label>mean <span class="k">μ<sub>y</sub></span></label><input type="range" id="muY" min="0.1" max="3" step="0.01" value="0.5"><span class="val" id="muYV"></span></div>
+    <div class="row yrow"><label>variance <span class="k">v<sub>y</sub></span></label><input type="range" id="vY" min="0" max="0.4" step="0.0005" value="0.0025"><span class="val" id="vYV"></span></div>
+    <div class="row yrow rareY" hidden><label>rare prob <span class="k">ε</span></label><input type="range" id="epsY" min="0.005" max="0.3" step="0.005" value="0.05"><span class="val" id="epsYV"></span></div>
+    <div class="row yrow rareY" hidden><label>typical <span class="k">h<sub>low</sub></span></label><input type="range" id="lowY" min="0" max="1.5" step="0.01" value="0.2"><span class="val" id="lowYV"></span></div>
+  </div>
+
+  <div class="card">
+    <h3>Nonlinearity &amp; coupling</h3>
+    <div class="row"><label>coupling <span class="k">β</span></label><input type="range" id="beta" min="-1" max="1" step="0.01" value="0.3"><span class="val" id="betaV"></span></div>
+    <div class="row"><label>quartic <span class="k">c<sub>4z</sub></span></label><input type="range" id="c4z" min="-3" max="3" step="0.01" value="-0.75"><span class="val" id="c4zV"></span></div>
+    <div class="row yrow"><label>quartic <span class="k">c<sub>4y</sub></span></label><input type="range" id="c4y" min="-3" max="3" step="0.01" value="0"><span class="val" id="c4yV"></span></div>
+    <div class="row"><label>sextic <span class="k">c<sub>6z</sub></span></label><input type="range" id="c6z" min="0" max="20" step="0.1" value="6"><span class="val" id="c6zV"></span></div>
+    <div class="row yrow"><label>sextic <span class="k">c<sub>6y</sub></span></label><input type="range" id="c6y" min="0" max="20" step="0.1" value="6"><span class="val" id="c6yV"></span></div>
+    <div class="note-sm">\(c_{4z}<0\): sub-quartic flip drive. \(c_{4z}>0\): super-quartic — oscillation can survive only if \(2\beta^2/\mu_y - c_{4z}/6>0\) (preset ▸ rescued by coupling).</div>
+  </div>
+
+  <div class="card">
+    <h3>Additive noise</h3>
+    <div class="row"><label><span class="k">σ<sub>z</sub></span></label><input type="range" id="sz" min="0" max="0.2" step="0.002" value="0.01"><span class="val" id="szV"></span></div>
+    <div class="row yrow"><label><span class="k">σ<sub>y</sub></span></label><input type="range" id="sy" min="0" max="0.2" step="0.002" value="0.01"><span class="val" id="syV"></span></div>
+  </div>
+
+  <div class="card">
+    <h3>Simulation</h3>
+    <div class="grid2">
+      <div class="row"><label style="flex-basis:64px">particles</label><input type="number" id="Np" value="4000" min="200" max="20000" step="200" style="width:74px"></div>
+      <div class="row"><label style="flex-basis:64px">steps T</label><input type="number" id="Tn" value="3000" min="400" max="20000" step="200" style="width:74px"></div>
+      <div class="row"><label style="flex-basis:64px">burn-in</label><input type="number" id="Bn" value="1500" min="0" max="19000" step="100" style="width:74px"></div>
+      <div class="row"><label style="flex-basis:64px">seed</label><input type="number" id="seed" value="7" min="0" step="1" style="width:74px"></div>
+    </div>
+    <div class="row"><label>drift clip</label><input type="range" id="clip" min="0.5" max="10" step="0.5" value="3"><span class="val" id="clipV"></span></div>
+    <div style="display:flex;gap:8px;margin-top:9px">
+      <button class="primary" id="runBtn">Run</button>
+      <button id="reseedBtn">re-seed &amp; run</button>
+      <button id="stripBtn">render η-strip</button>
+    </div>
+    <div class="statusline" id="status"></div>
+  </div>
+
+</div>
+
+<!-- ============ OUTPUT ============ -->
+<div class="main">
+
+  <div class="readouts">
+    <div class="card ro">
+      <h3>Sharp direction <span class="tag tagz">z</span> · edges</h3>
+      <table>
+        <tr><td>η<sub>MS</sub> = 2μ/(μ²+v)</td><td id="roMSz"></td></tr>
+        <tr><td>2/μ<sub>z</sub></td><td id="ro2mz"></td></tr>
+        <tr><td>η<sub>L</sub> : E log|1−ηh| = 0</td><td id="roLz"></td></tr>
+        <tr><td>η̂<sub>H</sub> : E|1−ηh|⁻¹ = 1</td><td id="roHz"></td></tr>
+        <tr><td>m₂(η), λ(η), H(η)</td><td id="roLivez"></td></tr>
+        <tr><td>effective μ<sub>z</sub>+2βȳ</td><td id="roEffz"></td></tr>
+      </table>
+      <div style="margin-top:7px"><span class="badge" id="regZ">—</span></div>
+    </div>
+    <div class="card ro">
+      <h3>Tangent direction <span class="tag tagy">y</span> · edges</h3>
+      <table>
+        <tr><td>η<sub>MS</sub></td><td id="roMSy"></td></tr>
+        <tr><td>2/μ<sub>y</sub></td><td id="ro2my"></td></tr>
+        <tr><td>η<sub>L</sub></td><td id="roLy"></td></tr>
+        <tr><td>η̂<sub>H</sub></td><td id="roHy"></td></tr>
+        <tr><td>m₂(η), λ(η), H(η)</td><td id="roLivey"></td></tr>
+        <tr><td>ηλ<sub>y</sub> (want &lt; 2 for slaving)</td><td id="roSlave"></td></tr>
+      </table>
+      <div style="margin-top:7px"><span class="badge" id="regY">—</span></div>
+    </div>
+    <div class="card ro">
+      <h3>Joint system · d &gt; 1 stability</h3>
+      <table>
+        <tr><td>λ<sub>top</sub> (Jacobian cocycle)</td><td id="roLtop"></td></tr>
+        <tr><td>theory ν⋆ (Eq. 47)</td><td id="roNu"></td></tr>
+        <tr><td>empirical lobe |z|-peak</td><td id="roNuE"></td></tr>
+        <tr><td>theory ȳ⋆ = −(β/μ<sub>y</sub>)(ν²+V)</td><td id="roYb"></td></tr>
+        <tr><td>empirical ȳ</td><td id="roYbE"></td></tr>
+        <tr><td>V<sub>y</sub>⋆ theory / emp.</td><td id="roVy"></td></tr>
+        <tr><td>reinjections</td><td id="roEsc"></td></tr>
+      </table>
+      <div style="margin-top:7px"><span class="badge z" id="lobeBadge">—</span></div>
+    </div>
+  </div>
+
+  <div class="card plotcard">
+    <h3>Joint quasi-stationary law &nbsp;p(z, y)&nbsp; — corner view, log-density</h3>
+    <div class="corner">
+      <div class="cell" style="grid-column:1;grid-row:1"><canvas id="cvMz"></canvas><span class="lbl" style="left:8px;top:6px">marginal p(z)</span></div>
+      <div class="cell" style="grid-column:2;grid-row:1;display:flex;align-items:center;justify-content:center">
+        <div style="font-family:var(--mono);font-size:10.5px;color:var(--faint);text-align:center;padding:6px">
+          dashed <span style="color:var(--z)">blue</span>: ±ν⋆<br>dashed <span style="color:var(--y)">amber</span>: ȳ⋆<br><span style="color:var(--dim)">theory, Eqs. 47 &amp; §4</span>
         </div>
       </div>
-      <p class="cap" id="hist_cap" style="margin-top:8px"></p>
+      <div class="cell" style="grid-column:1;grid-row:2;aspect-ratio:1.35"><canvas id="cvJoint"></canvas>
+        <span class="lbl" style="left:8px;bottom:6px">z (sharp) →</span>
+        <span class="lbl" style="left:6px;top:6px">↑ y (tangent)</span></div>
+      <div class="cell" style="grid-column:2;grid-row:2"><canvas id="cvMy"></canvas><span class="lbl" style="right:8px;top:6px">p(y)</span></div>
     </div>
-
-    <div class="card">
-      <h2>Strip — \(\eta\) across the \(z\)-edges</h2>
-      <p class="cap">Same laws and coupling; only \(\eta\) changes. \(z\)-marginals.</p>
-      <div class="strip" id="strip"></div>
-    </div>
-
-    <div class="card">
-      <h2>Sample trajectory</h2>
-      <p class="cap">One particle: \(z_t\) (blue) and \(y_t\) (violet). Watch \(y\) settle at \(\bar y_\star&lt;0\) once \(z\) oscillates.</p>
-      <canvas class="plot" id="ctraj" width="900" height="230" role="img" aria-label="trajectory"></canvas>
-    </div>
+    <div class="note-sm" id="rangeNote"></div>
   </div>
-</section>
-</main>
 
-<footer>
-  2-D companion to the <a href="index.html">1-D lab</a> — Eq. 37 of <em>Shape of Iterates at the Edge of Stability</em>
-  with sampled curvature on both directions.
-  Source: <a href="https://github.com/Avra98/sgd-1d-bimodality">github.com/Avra98/sgd-1d-bimodality</a>
-</footer>
+  <div class="card plotcard" style="margin-top:14px">
+    <h3>Fig-1-style strip — only η changes, per-direction regime labelled</h3>
+    <div class="minirow" id="stripRow"></div>
+    <div class="note-sm">Each panel: marginal \(p(z)\) (blue) over \(p(y)\) (amber, mirrored). Press “render η-strip” after changing laws.</div>
+  </div>
+
+  <div class="card plotcard" style="margin-top:14px">
+    <h3>Sample trajectory — one particle, last 260 steps</h3>
+    <div class="traj2">
+      <div class="cell"><canvas id="cvTz"></canvas></div>
+      <div class="cell"><canvas id="cvTy"></canvas></div>
+    </div>
+    <div class="note-sm">Top: \(z_t\), even/odd steps marked <span style="color:#7be0a3">green</span>/<span style="color:#ffb35c">orange</span> — a true flip period-2 alternates strictly. Bottom: \(y_t\) relaxing to the slaved offset \(\bar y_\star\).</div>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <h3>What “stability” means when d &gt; 1</h3>
+    <p class="note-sm" style="margin-top:0">
+      In one dimension the ladder is a family of scalar moment conditions \(\mathbb{E}|1-\eta h|^q<1\). In \(d>1\) the
+      linear object is the random matrix cocycle \(\prod_t(I-\eta H_t)\), and the pathwise notion is the <b>top Lyapunov
+      exponent</b> \(\lambda_{\mathrm{top}}\) (Eq. 9 of the draft): the origin is Lyapunov stable iff
+      \(\lambda_{\mathrm{top}}<0\). The widget measures \(\lambda_{\mathrm{top}}\) live along a trajectory of the full
+      nonlinear coupled system, Jacobian included coupling terms \(-2\eta\beta z\).
+      The per-direction ladders shown above are the scalar ladders of the marginal cocycles — exact when \(\beta=0\)
+      (block-diagonal \(H_t\)), and, when \(\beta\neq 0\), correct after replacing \(\mu_z\) by the <i>effective</i>
+      curvature \(\mu_z+2\beta\bar y\): the slaved tangent mean shifts the sharp direction’s edges self-consistently
+      (the “effective” row updates after each run). Bimodality remains a per-eigendirection statement — governed by the
+      harmonic reinjection functional \(H(\eta)=\mathbb{E}|1-\eta h_{\mathrm{eff}}|^{-1}\) along that direction — while
+      \(\lambda_{\mathrm{top}}\) only marks where the joint origin lets go. Crossing the ladder in one direction gives
+      2 lobes; in both directions (decouple with \(\beta\approx 0\)) gives 4.
+    </p>
+  </div>
+
+  <div class="footer">
+    2-D lab for the joint predictor model (Eq. 37) in <i>The Shape of SGD Iterates Beyond Stochastic Stability</i>.
+    Companion to the <a href="https://avra98.github.io/sgd-1d-bimodality/">1-D lab</a>. Drift clipping caps \(|\eta\nabla L|\)
+    per coordinate (rare-event guard for the sextic overshoot); reinjection at \(|x|>20\) is counted and reported.
+  </div>
+
+</div>
+</div>
+</div>
 
 <script>
+"use strict";
+/* ---------------- RNG & samplers ---------------- */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function makeGauss(rnd){let has=false,c=0;return function(){if(has){has=false;return c}
+  let u=0,v=0,s=0;do{u=2*rnd()-1;v=2*rnd()-1;s=u*u+v*v}while(s>=1||s===0);
+  const m=Math.sqrt(-2*Math.log(s)/s);c=v*m;has=true;return u*m}}
+function gammaSample(rnd,gauss,k){ // Marsaglia–Tsang, k>0
+  if(k<1){const u=rnd();return gammaSample(rnd,gauss,k+1)*Math.pow(u,1/k)}
+  const d=k-1/3,c=1/Math.sqrt(9*d);
+  for(;;){let x,v;do{x=gauss();v=1+c*x}while(v<=0);v=v*v*v;const u=rnd();
+    if(u<1-0.0331*x*x*x*x)return d*v;
+    if(Math.log(u)<0.5*x*x+d*(1-v+Math.log(v)))return d*v}}
 
-/* ===================== RNG ===================== */
-function mulberry32(a){
-  return function(){
-    let t = a += 0x6D2B79F5;
-    t = Math.imul(t ^ t >>> 15, t | 1);
-    t ^= t + Math.imul(t ^ t >>> 7, t | 61);
-    return ((t ^ t >>> 14) >>> 0) / 4294967296;
-  };
-}
-function randn(rng){
-  let u=0,v=0;
-  while(u===0) u=rng();
-  while(v===0) v=rng();
-  return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
-}
-function randChi2(k, rng){
-  if(k >= 1 && Math.abs(k - Math.round(k)) < 1e-9 && k <= 20){
-    let s=0; const n=Math.round(k);
-    for(let i=0;i<n;i++){ const z=randn(rng); s+=z*z; }
-    return s;
+const LAWS=[
+ {id:"gauss",name:"Gaussian"},
+ {id:"uniform",name:"Uniform"},
+ {id:"twopoint",name:"Bernoulli (two-point)"},
+ {id:"threepoint",name:"Three-point"},
+ {id:"chisq",name:"scaled χ²"},
+ {id:"rare",name:"rare spike (skewed)"},
+ {id:"det",name:"deterministic h≡μ"}
+];
+// returns {sample(), mean, var}
+function makeLaw(id,mu,v,eps,hlow,rnd,gauss){
+  switch(id){
+    case "gauss":{const sd=Math.sqrt(Math.max(v,0));return{sample:()=>mu+sd*gauss(),mean:mu,varr:v}}
+    case "uniform":{const w=Math.sqrt(3*Math.max(v,0));return{sample:()=>mu+w*(2*rnd()-1),mean:mu,varr:v}}
+    case "twopoint":{const d=Math.sqrt(Math.max(v,0));return{sample:()=>mu+(rnd()<0.5?-d:d),mean:mu,varr:v}}
+    case "threepoint":{const d=Math.sqrt(2*Math.max(v,0));return{sample:()=>{const u=rnd();return u<0.25?mu-d:(u<0.5?mu+d:mu)},mean:mu,varr:v}}
+    case "chisq":{ // h = c·X, X~χ²_k ; c·k=μ, 2kc²=v
+      if(v<=1e-9)return{sample:()=>mu,mean:mu,varr:0};
+      const c=v/(2*mu),k=2*mu*mu/v;
+      return{sample:()=>c*2*gammaSample(rnd,gauss,k/2),mean:mu,varr:v}}
+    case "rare":{const hh=(mu-(1-eps)*hlow)/eps;
+      const vv=eps*(hh-mu)**2+(1-eps)*(hlow-mu)**2;
+      return{sample:()=>(rnd()<eps?hh:hlow),mean:mu,varr:vv,hhigh:hh}}
+    default:return{sample:()=>mu,mean:mu,varr:0};
   }
-  const a = k/2;
-  if(a < 1) return randChi2(k+2, rng) * Math.pow(rng(), 2/k);
-  const d = a - 1/3, c = 1/Math.sqrt(9*d);
-  for(;;){
-    let x, v;
-    do{ x = randn(rng); v = 1 + c*x; } while(v <= 0);
-    v = v*v*v;
-    const u = rng();
-    if(u < 1 - 0.0331*(x*x)*(x*x)) return 2*d*v;
-    if(Math.log(u) < 0.5*x*x + d*(1 - v + Math.log(v))) return 2*d*v;
-  }
-}
-
-/* ===================== Curvature sampling ===================== */
-function spikeMoments(mu, eps, hLow){
-  const e = Math.min(Math.max(+eps || 0.02, 1e-6), 1 - 1e-6);
-  const hl = +hLow || 0;
-  const hh = (mu - (1 - e)*hl) / e;
-  const eh2 = (1 - e)*hl*hl + e*hh*hh;
-  const v = Math.max(eh2 - mu*mu, 0);
-  return {eps:e, hLow:hl, hHigh:hh, v};
-}
-function sampleH(p, rng){
-  const {law, mu, v} = p;
-  if(law === 'spike'){
-    const sp = p.spike || spikeMoments(mu, p.eps, p.h_low);
-    return rng() < sp.eps ? sp.hHigh : sp.hLow;
-  }
-  const s = Math.sqrt(Math.max(v, 0));
-  if(law === 'deterministic' || s === 0) return mu;
-  if(law === 'gaussian') return mu + s*randn(rng);
-  if(law === 'uniform'){
-    const a = s*Math.sqrt(3);
-    return mu - a + 2*a*rng();
-  }
-  if(law === 'bernoulli') return mu + (rng() < 0.5 ? -s : s);
-  if(law === 'chisq'){
-    const k = Math.max(2*mu*mu / Math.max(v, 1e-12), 0.5);
-    const c = mu / k;
-    return c * randChi2(k, rng);
-  }
-  return mu;
 }
 
-/* ===================== Edges (z-direction, bare law) ===================== */
-function etaMS(mu, v){ return 2*mu / (mu*mu + Math.max(v, 0)); }
-function mcExpect(p, fn, n, seed, shift){
-  const rng = mulberry32(seed >>> 0);
-  const sh = shift || 0;
-  let s = 0;
-  for(let i=0;i<n;i++) s += fn(sampleH(p, rng) + sh);
-  return s / n;
+/* ---------------- edges from a fixed MC pool ---------------- */
+function makePool(id,mu,v,eps,hlow,n=16384){
+  const rnd=mulberry32(1234567),g=makeGauss(rnd);
+  const law=makeLaw(id,mu,v,eps,hlow,rnd,g);
+  const p=new Float64Array(n);for(let i=0;i<n;i++)p[i]=law.sample();
+  return {pool:p,varr:law.varr,mean:mu};
 }
-function etaLyapunov(p, seed, shift){
-  const sh = shift || 0;
-  if(p.law === 'deterministic' || p.v <= 0){
-    const m = p.mu + sh;
-    return m > 0 ? 2/m : NaN;
-  }
-  if(p.law === 'spike'){
-    const sp = p.spike;
-    let lo = 1e-6, hi = 40/Math.max(p.mu + sh, 1e-6);
-    for(let it=0; it<60; it++){
-      const mid = 0.5*(lo+hi);
-      const m = (1-sp.eps)*Math.log(Math.abs(1-mid*(sp.hLow+sh))+1e-30)
-              + sp.eps*Math.log(Math.abs(1-mid*(sp.hHigh+sh))+1e-30);
-      if(m < 0) lo = mid; else hi = mid;
-    }
-    return 0.5*(lo+hi);
-  }
-  let lo = 1e-6, hi = 40/Math.max(p.mu + sh, 1e-6);
-  for(let it=0; it<48; it++){
-    const mid = 0.5*(lo+hi);
-    const m = mcExpect(p, h => Math.log(Math.abs(1 - mid*h) + 1e-30), 60000, seed+it*97, sh);
-    if(m < 0) lo = mid; else hi = mid;
-  }
+function m2Of(pool,eta){let s=0;for(let i=0;i<pool.length;i++){const a=1-eta*pool[i];s+=a*a}return s/pool.length}
+function lamOf(pool,eta){let s=0;for(let i=0;i<pool.length;i++){s+=Math.log(Math.max(Math.abs(1-eta*pool[i]),1e-12))}return s/pool.length}
+function HOf(pool,eta){let s=0;for(let i=0;i<pool.length;i++){s+=1/Math.max(Math.abs(1-eta*pool[i]),1e-9)}return s/pool.length}
+function etaMS(mu,v){return 2*mu/(mu*mu+v)}
+function etaLyap(pool,mu){ // second zero of lamOf
+  let lo=1/mu, hi=2.2/mu;
+  if(lamOf(pool,lo)>=0)lo=0.2/mu;
+  let cap=60/mu;
+  while(lamOf(pool,hi)<0){hi*=1.35;if(hi>cap)return Infinity}
+  for(let k=0;k<70;k++){const m=0.5*(lo+hi);(lamOf(pool,m)<0?lo=m:hi=m)}
   return 0.5*(lo+hi);
 }
-function harmonicH(p, eta, seed, shift){
-  return mcExpect(p, h => 1 / Math.max(Math.abs(1 - eta*h), 1e-3), 50000, seed+3, shift || 0);
+function etaHarm(pool,mu,etaCap){ // first eta with H<1 (MC estimate)
+  const start=Math.max(1.6/mu,1e-3);
+  for(let e=start;e<=etaCap;e+=etaCap/900){if(HOf(pool,e)<1)return e}
+  return Infinity;
 }
 
-/* ===================== Simulation ===================== */
-function runCloud2D(p){
-  const {eta, bcoup, c4, c6, sig_z, sig_y, npart, steps, burn, clip, seed} = p;
-  const pz = p.pz, py = p.py;
-  const rng = mulberry32(seed >>> 0);
-  const z = new Float64Array(npart);
-  const y = new Float64Array(npart);
-  for(let i=0;i<npart;i++){
-    z[i] = 0.15 * (rng() < 0.5 ? -1 : 1) * (0.3 + 0.7*rng());
-    y[i] = 0;
-  }
-  const trajZ = [], trajY = [];
-  const bound = 12;
-  let escapes = 0;
-  let maxAbsZ = 0.3, maxAbsY = 0.05;
-  const postZ = [], postY = [];
-  const scat = [];               // subsampled (z,y) pairs for the phase plane
-  const scatEvery = Math.max(1, Math.floor((steps - burn) * npart / 12000));
-  let scatCounter = 0;
-
-  // live diagnostics accumulated post-burn
-  let chiBare = 0, chiEff = 0, ybarAcc = 0, ez2Acc = 0, nDiag = 0;
-  const c43 = c4/6;
-  const useClip = clip > 0;
-
-  for(let t=0; t<steps; t++){
-    for(let i=0;i<npart;i++){
-      const hz = sampleH(pz, rng);
-      const hy = sampleH(py, rng);
-      const zi = z[i], yi = y[i];
-      const heff = hz + 2*bcoup*yi;
-      const z2 = zi*zi, z3 = z2*zi, z5 = z3*z2;
-      let dz = eta * (heff*zi + c43*z3 + c6*z5);
-      let dy = eta * (hy*yi + bcoup*z2);
-      if(useClip){
-        if(dz > clip) dz = clip; else if(dz < -clip) dz = -clip;
-        if(dy > clip) dy = clip; else if(dy < -clip) dy = -clip;
-      }
-      let zn = zi - dz;
-      let yn = yi - dy;
-      if(sig_z > 0) zn += sig_z * randn(rng);
-      if(sig_y > 0) yn += sig_y * randn(rng);
-
-      if(!Number.isFinite(zn) || !Number.isFinite(yn) || Math.abs(zn) > bound || Math.abs(yn) > bound){
-        escapes++;
-        let j = (Math.floor(rng()*npart))|0;
-        let guard = 0;
-        while((!Number.isFinite(z[j]) || Math.abs(z[j]) > bound ||
-               !Number.isFinite(y[j]) || Math.abs(y[j]) > bound) && guard++ < 8){
-          j = (Math.floor(rng()*npart))|0;
-        }
-        if(Number.isFinite(z[j]) && Math.abs(z[j]) <= bound && Math.abs(y[j]) <= bound){
-          zn = z[j]; yn = y[j];
-        } else { zn = 0.1*(rng()-0.5); yn = 0; }
-      }
-      z[i] = zn; y[i] = yn;
-
-      if(t >= burn){
-        const az = Math.abs(zn), ay = Math.abs(yn);
-        if(az > maxAbsZ) maxAbsZ = az;
-        if(ay > maxAbsY) maxAbsY = ay;
-        chiBare += Math.log(Math.abs(1 - eta*hz) + 1e-30);
-        chiEff  += Math.log(Math.abs(1 - eta*heff) + 1e-30);
-        ybarAcc += yn;
-        ez2Acc  += zn*zn;
-        nDiag++;
-        if((scatCounter++ % scatEvery) === 0) scat.push(zn, yn);
-      }
-    }
-    trajZ.push(z[0]); trajY.push(y[0]);
-    if(t >= burn){
-      for(let i=0;i<npart;i+=4){ postZ.push(z[i]); postY.push(y[i]); }
-    }
-  }
-
-  function makeHist(post, maxAbs, symmetric){
-    const R = Math.min(bound, Math.max(symmetric ? 0.5 : 0.15, 1.25 * maxAbs));
-    const xmin = symmetric ? -R : Math.min(-R, -0.05);
-    const xmax = R;
-    const nbins = 120;
-    const bw = (xmax - xmin) / nbins;
-    const hist = new Float64Array(nbins);
-    let nAcc = 0;
-    for(let k=0;k<post.length;k++){
-      const xi = post[k];
-      if(xi < xmin || xi >= xmax) continue;
-      const b = Math.min(nbins-1, Math.max(0, ((xi - xmin) / bw)|0));
-      hist[b] += 1; nAcc++;
-    }
-    const dens = new Float64Array(nbins);
-    const centers = new Float64Array(nbins);
-    const scale = nAcc > 0 ? 1 / (nAcc * bw) : 0;
-    for(let b=0;b<nbins;b++){ dens[b] = hist[b]*scale; centers[b] = xmin + (b+0.5)*bw; }
-    return {centers, dens, xmin, xmax};
-  }
-  const histZ = makeHist(postZ, maxAbsZ, true);
-  const histY = makeHist(postY, Math.max(maxAbsY, 0.02), true);
-
-  const inv = nDiag > 0 ? 1/nDiag : 0;
-  return {
-    histZ, histY, trajZ, trajY, scat, escapes,
-    maxAbsZ, maxAbsY,
-    chiBare: chiBare*inv, chiEff: chiEff*inv,
-    ybar: ybarAcc*inv, ez2: ez2Acc*inv,
-  };
-}
-
-function isBimodal(centers, dens){
-  let i0 = 0, best = Infinity;
-  for(let i=0;i<centers.length;i++){
-    const a = Math.abs(centers[i]);
-    if(a < best){ best = a; i0 = i; }
-  }
-  let left = 0, right = 0;
-  for(let i=0;i<centers.length;i++){
-    if(centers[i] < -0.05) left = Math.max(left, dens[i]);
-    if(centers[i] >  0.05) right = Math.max(right, dens[i]);
-  }
-  const p0 = dens[i0];
-  const both = left > 0.25 && right > 0.25;
-  const dip = p0 < 0.88 * Math.min(left, right);
-  return {bimodal: both && dip, p0, left, right};
-}
-function lobePeaks(centers, dens){
-  // location of the highest density bin on each side of 0
-  let li = -1, ri = -1;
-  for(let i=0;i<centers.length;i++){
-    if(centers[i] < -0.02 && (li < 0 || dens[i] > dens[li])) li = i;
-    if(centers[i] >  0.02 && (ri < 0 || dens[i] > dens[ri])) ri = i;
-  }
-  return {left: li >= 0 ? centers[li] : NaN, right: ri >= 0 ? centers[ri] : NaN};
-}
-
-/* ===================== UI helpers ===================== */
-function $(id){ return document.getElementById(id); }
-function fmt(x, d=3){
-  if(x == null || !Number.isFinite(x)) return '—';
-  if(Math.abs(x) >= 100) return x.toFixed(1);
-  if(Math.abs(x) >= 10) return x.toFixed(2);
-  return x.toFixed(d);
-}
-function syncSlider(numId, sId, toSlider, fromSlider){
-  const n = $(numId), s = $(sId);
-  const applyNum = () => { s.value = String(toSlider(+n.value)); };
-  const applyS = () => { n.value = String(fromSlider(+s.value)); };
-  n.addEventListener('change', () => { applyNum(); schedule(); });
-  s.addEventListener('input', () => { applyS(); schedule(); });
-  applyNum();
-}
+/* ---------------- state ---------------- */
+const $=id=>document.getElementById(id);
+const P={}; // current params, filled from DOM
+const S={ running:false, escapes:0, ltop:NaN,
+  snapZ:null,snapY:null,nSnap:0, trajZ:null,trajY:null,
+  meanY:0, poolZ:null, poolY:null, edges:{z:{},y:{}} };
 
 function readParams(){
-  const law_z = $('law_z').value;
-  const mu_z = +$('mu_z').value;
-  const eps = +$('eps').value;
-  const h_low = +$('h_low').value;
-  const spike = (law_z === 'spike') ? spikeMoments(mu_z, eps, h_low) : null;
-  const v_z = spike ? spike.v : +$('v_z').value;
-  const law_y = $('law_y').value;
-  const mu_y = +$('mu_y').value;
-  const v_y = +$('v_y').value;
-  return {
-    pz: {law: law_z, mu: mu_z, v: v_z, eps, h_low, spike},
-    py: {law: law_y, mu: mu_y, v: v_y},
-    bcoup: +$('bcoup').value,
-    c4: +$('c4').value,
-    c6: +$('c6').value,
-    sig_z: +$('sig_z').value,
-    sig_y: +$('sig_y').value,
-    eta: +$('eta').value,
-    npart: +$('npart').value|0,
-    steps: +$('steps').value|0,
-    burn: +$('burn').value|0,
-    clip: +$('clip').value,
-    seed: +$('seed').value|0,
-  };
+  P.eta=+$("eta").value; P.lawZ=$("lawZ").value; P.lawY=$("lawY").value;
+  P.muZ=+$("muZ").value; P.vZ=+$("vZ").value; P.muY=+$("muY").value; P.vY=+$("vY").value;
+  P.epsZ=+$("epsZ").value; P.lowZ=+$("lowZ").value; P.epsY=+$("epsY").value; P.lowY=+$("lowY").value;
+  P.beta=+$("beta").value; P.c4z=+$("c4z").value; P.c4y=+$("c4y").value; P.c6z=+$("c6z").value; P.c6y=+$("c6y").value;
+  P.sz=+$("sz").value; P.sy=+$("sy").value;
+  P.N=Math.max(100,+$("Np").value|0); P.T=Math.max(200,+$("Tn").value|0);
+  P.burn=Math.min(+$("Bn").value|0,P.T-100); P.seed=+$("seed").value|0; P.clip=+$("clip").value;
+}
+function fmt(x,d=3){return (x===Infinity||!isFinite(x))?"∞":(+x).toFixed(d)}
+
+/* ---------------- edges & ladders ---------------- */
+function recomputeEdges(){
+  S.poolZ=makePool(P.lawZ,P.muZ,P.vZ,P.epsZ,P.lowZ);
+  S.poolY=makePool(P.lawY,P.muY,P.vY,P.epsY,P.lowY);
+  const cap=+$("eta").max*1.6;
+  S.edges.z={ms:etaMS(P.muZ,S.poolZ.varr),e0:2/P.muZ,L:etaLyap(S.poolZ.pool,P.muZ),H:etaHarm(S.poolZ.pool,P.muZ,cap),v:S.poolZ.varr};
+  S.edges.y={ms:etaMS(P.muY,S.poolY.varr),e0:2/P.muY,L:etaLyap(S.poolY.pool,P.muY),H:etaHarm(S.poolY.pool,P.muY,cap),v:S.poolY.varr};
+  drawLadder("ladderZ",S.edges.z); drawLadder("ladderY",S.edges.y);
+  updateReadouts();
+}
+function drawLadder(id,E){
+  const el=$(id); el.innerHTML="";
+  const mx=+$("eta").max, X=e=>Math.min(100,Math.max(0,100*e/mx));
+  const bands=[["#123c3a",0,E.ms],["#3a2d14",E.ms,E.L],["#3c2440",E.L,isFinite(E.H)?E.H:mx],["#47182b",isFinite(E.H)?E.H:mx,mx]];
+  for(const[c,a,b]of bands){if(b<=a)continue;const d=document.createElement("div");d.className="band";
+    d.style.left=X(a)+"%";d.style.width=(X(b)-X(a))+"%";d.style.background=c;el.appendChild(d)}
+  const ticks=[["var(--ms)",E.ms],["var(--edge0)",E.e0],["var(--lyap)",E.L],["var(--harm)",E.H]];
+  for(const[c,e]of ticks){if(!isFinite(e)||e>mx)continue;const t=document.createElement("div");t.className="tick";
+    t.style.left=X(e)+"%";t.style.background=c;el.appendChild(t)}
+  // eta marker
+  const m=document.createElement("div");m.className="tick";m.style.left=X(P.eta)+"%";m.style.background="#fff";m.style.width="2.5px";el.appendChild(m);
+}
+function regime(E,eta){
+  if(eta<E.ms)return["MS stable — spike at 0","ok"];
+  if(eta<E.L)return["post-MS — 2nd moment blown, spike persists","warn"];
+  if(!isFinite(E.H)||eta<E.H)return["post-Lyapunov — core broadens","warn"];
+  return["post-harmonic — central depletion, lobes","bad"];
+}
+function updateReadouts(){
+  if(!S.poolZ||!S.poolY)return;
+  const Ez=S.edges.z,Ey=S.edges.y;
+  $("roMSz").textContent=fmt(Ez.ms); $("ro2mz").textContent=fmt(Ez.e0);
+  $("roLz").textContent=fmt(Ez.L); $("roHz").textContent=isFinite(Ez.H)?fmt(Ez.H):"∞ (continuous law)";
+  $("roMSy").textContent=fmt(Ey.ms); $("ro2my").textContent=fmt(Ey.e0);
+  $("roLy").textContent=fmt(Ey.L); $("roHy").textContent=isFinite(Ey.H)?fmt(Ey.H):"∞ (continuous law)";
+  $("roLivez").textContent=fmt(m2Of(S.poolZ.pool,P.eta),2)+" · "+fmt(lamOf(S.poolZ.pool,P.eta),3)+" · "+fmt(HOf(S.poolZ.pool,P.eta),2);
+  $("roLivey").textContent=fmt(m2Of(S.poolY.pool,P.eta),2)+" · "+fmt(lamOf(S.poolY.pool,P.eta),3)+" · "+fmt(HOf(S.poolY.pool,P.eta),2);
+  $("roSlave").textContent=fmt(P.eta*P.muY,2)+(P.eta*P.muY<2?"  ✓":"  ✗ unstable");
+  const rz=regime(Ez,P.eta), ry=regime(Ey,P.eta);
+  $("regZ").textContent="z: "+rz[0]; $("regZ").className="badge "+rz[1];
+  $("regY").textContent="y: "+ry[0]; $("regY").className="badge "+ry[1];
+  // theory
+  const denom=2*P.beta*P.beta/P.muY - P.c4z/6;
+  const nu2=(P.muZ-2/P.eta)/denom;
+  const Vy=(P.eta*P.muY>0&&P.eta*P.muY<2)?P.sy*P.sy/(P.eta*P.muY*(2-P.eta*P.muY)):NaN;
+  let Vst=NaN;
+  if(P.c4z<0&&nu2>0){Vst=(P.sz*P.sz+4*P.eta*P.eta*nu2*P.beta*P.beta*(isFinite(Vy)?Vy:0))/(2*P.eta*Math.abs(P.c4z)/3*nu2)}
+  const nu=(denom>0&&nu2>0)?Math.sqrt(nu2):NaN;
+  const yb=(nu2>0)?-(P.beta/P.muY)*(nu2+(isFinite(Vst)?Vst:0)):0;
+  P._nu=nu;P._yb=yb;P._Vy=Vy;
+  $("roNu").textContent=isFinite(nu)?("±"+fmt(nu)):(denom<=0?"— (denom ≤ 0: no confined orbit)":"— (η below 2/μ_z)");
+  $("roYb").textContent=isFinite(nu)?fmt(yb):"—";
+  $("roVy").textContent=(isFinite(Vy)?fmt(Vy,4):"—")+" / "+(S._VyE!=null?fmt(S._VyE,4):"—");
 }
 
-function typesetMath(root){
-  if (!window.renderMathInElement) return;
-  renderMathInElement(root || document.body, {
-    delimiters: [
-      {left: '$$', right: '$$', display: true},
-      {left: '\\[', right: '\\]', display: true},
-      {left: '$', right: '$', display: false},
-      {left: '\\(', right: '\\)', display: false},
-    ],
-    throwOnError: false,
-  });
-}
-
-function updateDef(p){
-  const lawName = l => ({gaussian:'Gaussian', uniform:'Unif', bernoulli:'two-point',
-    chisq:'χ²', spike:'rare-spike', deterministic:'const'})[l] || l;
-  const box = $('mdef');
-  box.innerHTML = `<div class="param-readout" id="param_readout"></div>`;
-  let readout =
-    `<span><em>h</em>: <b>${lawName(p.pz.law)}(${fmt(p.pz.mu,2)}, ${fmt(p.pz.v,3)})</b></span>` +
-    `<span><em>g</em>: <b>${lawName(p.py.law)}(${fmt(p.py.mu,2)}, ${fmt(p.py.v,3)})</b></span>` +
-    `<span><em>β</em> = <b>${fmt(p.bcoup,3)}</b></span>` +
-    `<span><em>c</em><sub>4</sub> = <b>${fmt(p.c4,2)}</b></span>` +
-    `<span><em>c</em><sub>6</sub> = <b>${fmt(p.c6,2)}</b></span>` +
-    `<span><em>σ</em><sub>z</sub> = <b>${fmt(p.sig_z,3)}</b></span>` +
-    `<span><em>σ</em><sub>y</sub> = <b>${fmt(p.sig_y,3)}</b></span>` +
-    `<span><em>η</em> = <b>${fmt(p.eta,3)}</b></span>` +
-    `<span><em>ημ</em><sub>z</sub> = <b>${fmt(p.eta*p.pz.mu,2)}</b></span>` +
-    `<span><em>ημ</em><sub>y</sub> = <b>${fmt(p.eta*p.py.mu,2)}</b></span>`;
-  $('param_readout').innerHTML = readout;
-
-  const isSpike = p.pz.law === 'spike';
-  const isDet = p.pz.law === 'deterministic';
-  $('spike_controls').style.display = isSpike ? 'block' : 'none';
-  $('row_vz').style.opacity = (isDet || isSpike) ? 0.4 : 1;
-  $('v_z_s').disabled = isDet || isSpike;
-  $('v_z').disabled = isDet || isSpike;
-  if(isSpike){
-    $('v_z').value = String(+p.pz.v.toFixed(6));
-    $('spike_readout').textContent =
-      `Derived: h_high=${fmt(p.pz.spike.hHigh,2)}, v_z=${fmt(p.pz.v,3)}. ` +
-      `Compare η to 2/μz=${fmt(2/p.pz.mu)} vs 2/h_high=${fmt(2/p.pz.spike.hHigh)}.`;
-  }
-  const tangEdge = p.eta * p.py.mu;
-  $('hint_tang').textContent = tangEdge < 2
-    ? `Spectral condition OK: ημ_y = ${fmt(tangEdge,2)} < 2 (tangent stable).`
-    : `WARNING: ημ_y = ${fmt(tangEdge,2)} ≥ 2 — tangent direction unstable; y flips too.`;
-}
-
-function computeEdges(p){
-  const vEff = (p.pz.law === 'deterministic') ? 0 : Math.max(p.pz.v, 0);
-  const pzEff = {...p.pz, v: vEff};
-  const eMS = etaMS(p.pz.mu, vEff);
-  const eL = etaLyapunov(pzEff, p.seed+1, 0);
-  const eDet = 2 / p.pz.mu;
-  const eTang = p.py.mu > 0 ? 2 / p.py.mu : NaN;
-  const eRare = (p.pz.law === 'spike' && p.pz.spike && p.pz.spike.hHigh > 0)
-    ? 2 / p.pz.spike.hHigh : NaN;
-  return {eMS, eL, eDet, eTang, eRare, vEff, pzEff};
-}
-
-/* predicted fixed point (draft §4, Gaussian closure) */
-function predictedFixedPoint(p, ez2meas){
-  const {bcoup, c4, eta} = p;
-  const muz = p.pz.mu, muy = p.py.mu;
-  const denom = 2*bcoup*bcoup/Math.max(muy,1e-9) - c4/6;
-  const numer = muz - 2/eta;
-  const nu2 = (denom > 1e-12 && numer > 0) ? numer/denom : NaN;
-  const Vy = (p.sig_y > 0 && muy > 0 && eta*muy < 2 && eta*muy > 0)
-    ? p.sig_y*p.sig_y/(eta*muy*(2-eta*muy)) : 0;
-  const ybarPred = muy > 0 ? -(bcoup/muy) * (Number.isFinite(ez2meas) ? ez2meas : (Number.isFinite(nu2) ? nu2 : 0)) : NaN;
-  return {nu2, nu: Number.isFinite(nu2) ? Math.sqrt(nu2) : NaN, Vy, ybarPred};
-}
-
-/* ===================== Drawing ===================== */
-function getCss(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
-function dpiCanvas(c){
-  const dpr = window.devicePixelRatio || 1;
-  const rect = c.getBoundingClientRect();
-  const cssW = Math.max(280, rect.width || c.width);
-  const cssH = c.height / (c.width / cssW);
-  c.width = Math.round(cssW * dpr);
-  c.height = Math.round(cssH * dpr);
-  const ctx = c.getContext('2d');
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  return {ctx, W: cssW, H: cssH};
-}
-
-function drawHist(canvas, hist, opts){
-  const {ctx, W, H} = dpiCanvas(canvas);
-  ctx.clearRect(0,0,W,H);
-  const pad = {l:44, r:12, t:14, b:32};
-  const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
-  const xMin = hist.xmin, xMax = hist.xmax;
-  const yMax = Math.max(0.1, Math.max(...hist.dens) * 1.12);
-  const X = x => pad.l + (x - xMin)/(xMax - xMin) * pw;
-  const Y = y => pad.t + (1 - y/yMax) * ph;
-
-  ctx.strokeStyle = getCss('--grid'); ctx.lineWidth = 1;
-  ctx.beginPath();
-  for(let i=0;i<=4;i++){
-    const y = pad.t + ph*i/4;
-    ctx.moveTo(pad.l, y); ctx.lineTo(pad.l+pw, y);
-  }
-  ctx.stroke();
-
-  const color = opts.color || 'rgba(42,120,214,0.55)';
-  const bw = (xMax - xMin) / hist.dens.length;
-  ctx.fillStyle = color;
-  for(let i=0;i<hist.dens.length;i++){
-    const x0 = X(hist.centers[i] - bw/2);
-    const x1 = X(hist.centers[i] + bw/2);
-    const y = Y(hist.dens[i]);
-    ctx.fillRect(x0, y, Math.max(1, x1-x0-0.5), pad.t+ph - y);
-  }
-  ctx.strokeStyle = opts.line || getCss('--accent'); ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  for(let i=0;i<hist.dens.length;i++){
-    const xx = X(hist.centers[i]), yy = Y(hist.dens[i]);
-    if(i===0) ctx.moveTo(xx,yy); else ctx.lineTo(xx,yy);
-  }
-  ctx.stroke();
-
-  ctx.strokeStyle = getCss('--axis'); ctx.setLineDash([3,3]);
-  ctx.beginPath(); ctx.moveTo(X(0), pad.t); ctx.lineTo(X(0), pad.t+ph); ctx.stroke();
-  ctx.setLineDash([]);
-
-  // markers (e.g. predicted ±ν*, or ȳ*)
-  if(opts.markers){
-    for(const m of opts.markers){
-      if(!Number.isFinite(m.x)) continue;
-      ctx.strokeStyle = m.color; ctx.setLineDash([5,3]); ctx.lineWidth = 1.4;
-      ctx.beginPath(); ctx.moveTo(X(m.x), pad.t); ctx.lineTo(X(m.x), pad.t+ph); ctx.stroke();
-      ctx.setLineDash([]);
+/* ---------------- simulation ---------------- */
+let runToken=0;
+function runSim(){
+  readParams(); recomputeEdges();
+  const tok=++runToken;
+  const rnd=mulberry32(P.seed*2654435761>>>0 || 1), gauss=makeGauss(rnd);
+  const lawZ=makeLaw(P.lawZ,P.muZ,P.vZ,P.epsZ,P.lowZ,rnd,gauss);
+  const lawY=makeLaw(P.lawY,P.muY,P.vY,P.epsY,P.lowY,rnd,gauss);
+  const N=P.N,T=P.T,burn=P.burn,eta=P.eta,beta=P.beta,clip=P.clip;
+  const c4z6=P.c4z/6,c6z120=P.c6z/120,c4y6=P.c4y/6,c6y120=P.c6y/120,sz=P.sz,sy=P.sy;
+  const z=new Float64Array(N),y=new Float64Array(N);
+  for(let i=0;i<N;i++){z[i]=0.3*gauss();y[i]=0.3*gauss()}
+  const nKeep=Math.min(120,T-burn), thin=Math.max(1,Math.floor((T-burn)/nKeep));
+  const cap=Math.min(600000,N*Math.ceil((T-burn)/thin));
+  S.snapZ=new Float32Array(cap);S.snapY=new Float32Array(cap);S.nSnap=0;
+  S.trajZ=new Float64Array(T);S.trajY=new Float64Array(T);
+  S.escapes=0;S._VyE=null;
+  // tangent vector for lambda_top (particle 0)
+  let v1=1,v2=0.3,lt=0,ltn=0;
+  let t=0; S.running=true; $("status").textContent="running…";
+  const CH=Math.max(10,Math.floor(28000/N*50));
+  function chunk(){
+    if(tok!==runToken)return;
+    const tEnd=Math.min(T,t+CH);
+    for(;t<tEnd;t++){
+      for(let i=0;i<N;i++){
+        const hz=lawZ.sample(),hy=lawY.sample();
+        const zi=z[i],yi=y[i];
+        let dz=eta*((hz+2*beta*yi)*zi+c4z6*zi*zi*zi+c6z120*zi*zi*zi*zi*zi);
+        let dy=eta*(hy*yi+beta*zi*zi+c4y6*yi*yi*yi+c6y120*yi*yi*yi*yi*yi);
+        let clipped=false;
+        if(dz>clip){dz=clip;clipped=true}else if(dz<-clip){dz=-clip;clipped=true}
+        if(dy>clip){dy=clip;clipped=true}else if(dy<-clip){dy=-clip;clipped=true}
+        let zn=zi-dz+(sz?sz*gauss():0);
+        let yn=yi-dy+(sy?sy*gauss():0);
+        if(Math.abs(zn)>20){zn=0.1*gauss();S.escapes++}
+        if(Math.abs(yn)>20){yn=0.1*gauss();S.escapes++}
+        if(i===0){
+          S.trajZ[t]=zn;S.trajY[t]=yn;
+          if(!clipped){
+            const a11=1-eta*(hz+2*beta*yi+3*c4z6*zi*zi+5*c6z120*zi*zi*zi*zi);
+            const a12=-eta*2*beta*zi, a21=-eta*2*beta*zi;
+            const a22=1-eta*(hy+3*c4y6*yi*yi+5*c6y120*yi*yi*yi*yi);
+            const w1=a11*v1+a12*v2, w2=a21*v1+a22*v2;
+            const nrm=Math.hypot(w1,w2);
+            if(nrm>1e-300&&isFinite(nrm)){v1=w1/nrm;v2=w2/nrm;if(t>=burn){lt+=Math.log(nrm);ltn++}}
+          }
+        }
+        z[i]=zn;y[i]=yn;
+      }
+      if(t>=burn&&(t-burn)%thin===0){
+        const room=S.snapZ.length-S.nSnap, take=Math.min(N,room);
+        for(let i=0;i<take;i++){S.snapZ[S.nSnap+i]=z[i];S.snapY[S.nSnap+i]=y[i]}
+        S.nSnap+=take;
+      }
+    }
+    $("status").textContent="running… step "+t+" / "+T;
+    if(t<T){requestAnimationFrame(chunk)}
+    else{
+      S.ltop=ltn>0?lt/ltn:NaN; S.running=false;
+      finish();
     }
   }
-
-  ctx.strokeStyle = getCss('--axis'); ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(pad.l, pad.t); ctx.lineTo(pad.l, pad.t+ph); ctx.lineTo(pad.l+pw, pad.t+ph);
-  ctx.stroke();
-  ctx.fillStyle = getCss('--muted'); ctx.font = '11px system-ui';
-  ctx.fillText(opts.xlabel || 'x', W/2, H-6);
-  const span = xMax - xMin;
-  const tickStep = span > 8 ? 2 : (span > 3 ? 1 : (span > 0.8 ? 0.5 : 0.1));
-  for(let xv = Math.ceil(xMin/tickStep)*tickStep; xv <= xMax + 1e-9; xv += tickStep){
-    ctx.fillText(fmt(xv, tickStep < 0.5 ? 1 : 0), X(xv)-8, pad.t+ph+13);
-  }
-  if(opts.title){
-    ctx.fillStyle = getCss('--ink2'); ctx.font = '12px ui-monospace, Menlo, monospace';
-    ctx.textAlign = 'right';
-    ctx.fillText(opts.title, pad.l+pw-4, pad.t+12);
-    ctx.textAlign = 'left';
-  }
+  requestAnimationFrame(chunk);
+}
+function percentile(a,n,q){
+  const stride=Math.max(1,Math.floor(n/60000)),m=Math.floor(n/stride);
+  const b=new Float64Array(m);for(let i=0;i<m;i++)b[i]=a[i*stride];
+  b.sort();return b[Math.max(0,Math.min(m-1,Math.floor(q*m)))]}
+function finish(){
+  const n=S.nSnap;
+  if(n<10){$("status").textContent="no samples — increase T or lower burn-in";return}
+  let my=0;for(let i=0;i<n;i++)my+=S.snapY[i];my/=n;
+  let vy=0;for(let i=0;i<n;i++){const d=S.snapY[i]-my;vy+=d*d}vy/=n;
+  S.meanY=my;S._VyE=vy;
+  // effective edges for z
+  const muEff=P.muZ+2*P.beta*my;
+  const shifted=new Float64Array(S.poolZ.pool.length);
+  for(let i=0;i<shifted.length;i++)shifted[i]=S.poolZ.pool[i]+2*P.beta*my;
+  const msE=etaMS(muEff,S.poolZ.varr), LE=etaLyap(shifted,Math.max(muEff,1e-3));
+  $("roEffz").textContent=fmt(muEff,3)+"  (η_MS→"+fmt(msE,2)+", η_L→"+fmt(LE,2)+")";
+  $("roLtop").textContent=fmt(S.ltop,4)+(S.ltop<0?"  (contracting orbit)":"  (expanding)");
+  $("roEsc").textContent=S.escapes+(S.escapes>0.01*P.N*P.T?"  ⚠ raise c₆ / clip":"");
+  $("roYbE").textContent=fmt(my,3);
+  updateReadouts(); // refresh Vy emp
+  renderCorner(); renderTraj();
+  $("status").textContent="done · "+n.toLocaleString()+" samples · λ_top="+fmt(S.ltop,3);
 }
 
-function drawScatter(canvas, scat, extras){
-  const {ctx, W, H} = dpiCanvas(canvas);
-  ctx.clearRect(0,0,W,H);
-  const pad = {l:52, r:14, t:14, b:34};
-  const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
-
-  // auto range from data + predicted markers
-  let zR = 0.3, yLo = -0.05, yHi = 0.05;
-  for(let k=0;k<scat.length;k+=2){
-    const a = Math.abs(scat[k]);
-    if(a > zR) zR = a;
-    const yy = scat[k+1];
-    if(yy < yLo) yLo = yy;
-    if(yy > yHi) yHi = yy;
-  }
-  if(extras && Number.isFinite(extras.nu)) zR = Math.max(zR, extras.nu*1.15);
-  if(extras && Number.isFinite(extras.ybarPred)){
-    yLo = Math.min(yLo, extras.ybarPred*1.3);
-    yHi = Math.max(yHi, Math.abs(extras.ybarPred)*0.4);
-  }
-  zR *= 1.12;
-  const ySpan = Math.max(yHi - yLo, 0.02);
-  yLo -= 0.08*ySpan; yHi += 0.08*ySpan;
-
-  const X = z => pad.l + (z + zR)/(2*zR) * pw;
-  const Y = y => pad.t + (yHi - y)/(yHi - yLo) * ph;
-
-  ctx.strokeStyle = getCss('--grid'); ctx.lineWidth = 1;
-  ctx.beginPath();
-  for(let i=0;i<=4;i++){
-    const y = pad.t + ph*i/4;
-    ctx.moveTo(pad.l, y); ctx.lineTo(pad.l+pw, y);
-  }
-  ctx.stroke();
-  // axes through 0
-  ctx.strokeStyle = getCss('--axis'); ctx.setLineDash([3,3]);
-  ctx.beginPath(); ctx.moveTo(X(0), pad.t); ctx.lineTo(X(0), pad.t+ph); ctx.stroke();
-  if(yLo < 0 && yHi > 0){
-    ctx.beginPath(); ctx.moveTo(pad.l, Y(0)); ctx.lineTo(pad.l+pw, Y(0)); ctx.stroke();
-  }
-  ctx.setLineDash([]);
-
-  // cloud
-  ctx.fillStyle = 'rgba(42,120,214,0.16)';
-  for(let k=0;k<scat.length;k+=2){
-    ctx.fillRect(X(scat[k])-1.1, Y(scat[k+1])-1.1, 2.2, 2.2);
-  }
-
-  // measured ȳ line
-  if(extras && Number.isFinite(extras.ybarMeas)){
-    ctx.strokeStyle = getCss('--tang'); ctx.setLineDash([6,4]); ctx.lineWidth = 1.4;
-    ctx.beginPath(); ctx.moveTo(pad.l, Y(extras.ybarMeas)); ctx.lineTo(pad.l+pw, Y(extras.ybarMeas)); ctx.stroke();
-    ctx.setLineDash([]);
-  }
-  // predicted lobe centers
-  if(extras && Number.isFinite(extras.nu) && Number.isFinite(extras.ybarPred)){
-    ctx.strokeStyle = getCss('--harm'); ctx.lineWidth = 2;
-    for(const zc of [-extras.nu, extras.nu]){
-      const cx = X(zc), cy = Y(extras.ybarPred);
-      ctx.beginPath();
-      ctx.moveTo(cx-5, cy-5); ctx.lineTo(cx+5, cy+5);
-      ctx.moveTo(cx-5, cy+5); ctx.lineTo(cx+5, cy-5);
-      ctx.stroke();
-    }
-  }
-
-  ctx.strokeStyle = getCss('--axis'); ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(pad.l, pad.t); ctx.lineTo(pad.l, pad.t+ph); ctx.lineTo(pad.l+pw, pad.t+ph);
-  ctx.stroke();
-  ctx.fillStyle = getCss('--muted'); ctx.font = '11px system-ui';
-  ctx.fillText('z (sharp)', W/2 - 20, H-6);
-  ctx.save(); ctx.translate(14, H/2); ctx.rotate(-Math.PI/2); ctx.fillText('y (tangent)', -28, 0); ctx.restore();
-  ctx.fillText(fmt(-zR,2), pad.l, pad.t+ph+13);
-  ctx.fillText(fmt(zR,2), pad.l+pw-24, pad.t+ph+13);
-  ctx.fillText(fmt(yHi,2), pad.l+3, pad.t+10);
-  ctx.fillText(fmt(yLo,2), pad.l+3, pad.t+ph-3);
+/* ---------------- rendering ---------------- */
+function sizeCanvas(cv){const r=cv.getBoundingClientRect(),d=devicePixelRatio||1;
+  cv.width=Math.max(2,r.width*d)|0;cv.height=Math.max(2,r.height*d)|0;return d}
+const COL=[[11,18,32],[18,44,79],[36,92,160],[92,160,230],[168,210,250],[240,248,255]];
+function heatColor(t){ // t in [0,1]
+  const x=t*(COL.length-1),i=Math.min(COL.length-2,x|0),f=x-i;
+  const a=COL[i],b=COL[i+1];
+  return [a[0]+f*(b[0]-a[0]),a[1]+f*(b[1]-a[1]),a[2]+f*(b[2]-a[2])];
 }
-
-function drawTraj(canvas, trajZ, trajY){
-  const {ctx, W, H} = dpiCanvas(canvas);
-  ctx.clearRect(0,0,W,H);
-  const pad = {l:48, r:16, t:12, b:28};
-  const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
-  const n = trajZ.length;
-  let yMax = 0.2;
+function robustRange(arr,n,pad){
+  const lo=percentile(arr,n,0.004),hi=percentile(arr,n,0.996);
+  const c=0.5*(lo+hi),h=Math.max((hi-lo)/2,1e-4)*(1+pad);return[c-h,c+h];
+}
+function histCounts(arr,n,lo,hi,nb){const h=new Float64Array(nb);const s=nb/(hi-lo);
+  for(let i=0;i<n;i++){const b=((arr[i]-lo)*s)|0;if(b>=0&&b<nb)h[b]++}return h}
+function smooth3(h){const o=new Float64Array(h.length);for(let i=0;i<h.length;i++){o[i]=(h[i-1]||0)*0.25+h[i]*0.5+(h[i+1]||0)*0.25}return o}
+function countModes(h){const s=smooth3(smooth3(h));const mx=Math.max(...s);const pk=[];
+  for(let i=2;i<s.length-2;i++){if(s[i]>0.13*mx&&s[i]>=s[i-1]&&s[i]>=s[i+1]&&s[i]>s[i-2]&&s[i]>s[i+2]){
+    if(pk.length===0||i-pk[pk.length-1]>4)pk.push(i)}}
+  return pk;
+}
+let VIEW={zlo:-1.5,zhi:1.5,ylo:-1,yhi:0.6};
+function renderCorner(){
+  const n=S.nSnap;if(!n)return;
+  // symmetric z range, y range around data
+  const zr=robustRange(S.snapZ,n,0.25);const zh=Math.max(Math.abs(zr[0]),Math.abs(zr[1]));
+  VIEW.zlo=-zh;VIEW.zhi=zh;
+  const yr=robustRange(S.snapY,n,0.35);VIEW.ylo=yr[0];VIEW.yhi=yr[1];
+  $("rangeNote").textContent="view: z ∈ ["+fmt(VIEW.zlo,2)+", "+fmt(VIEW.zhi,2)+"], y ∈ ["+fmt(VIEW.ylo,2)+", "+fmt(VIEW.yhi,2)+"] · auto-ranged (0.4–99.6 pct)";
+  /* joint heatmap */
+  const cv=$("cvJoint");sizeCanvas(cv);const g=cv.getContext("2d");
+  const W=cv.width,H=cv.height,NB=150;
+  const grid=new Float64Array(NB*NB);
+  const sx=NB/(VIEW.zhi-VIEW.zlo),sy=NB/(VIEW.yhi-VIEW.ylo);
   for(let i=0;i<n;i++){
-    yMax = Math.max(yMax, Math.abs(trajZ[i]), Math.abs(trajY[i]));
+    const bx=((S.snapZ[i]-VIEW.zlo)*sx)|0,by=((S.snapY[i]-VIEW.ylo)*sy)|0;
+    if(bx>=0&&bx<NB&&by>=0&&by<NB)grid[by*NB+bx]++;
   }
-  yMax *= 1.15;
-  const Y = y => pad.t + (0.5 - 0.5*y/yMax) * ph;
-
-  ctx.strokeStyle = getCss('--grid'); ctx.beginPath();
-  ctx.moveTo(pad.l, Y(0)); ctx.lineTo(pad.l+pw, Y(0)); ctx.stroke();
-
-  const start = Math.max(0, n - 400);
-  const XX = i => pad.l + (i-start)/(Math.max(1, n-1-start)) * pw;
-  // y first (behind)
-  ctx.strokeStyle = getCss('--tang'); ctx.lineWidth = 1.2;
-  ctx.beginPath();
-  for(let i=start;i<n;i++){
-    const yy = Y(trajY[i]);
-    if(i===start) ctx.moveTo(XX(i),yy); else ctx.lineTo(XX(i),yy);
-  }
-  ctx.stroke();
-  // z
-  ctx.strokeStyle = getCss('--accent'); ctx.lineWidth = 1.2;
-  ctx.beginPath();
-  for(let i=start;i<n;i++){
-    const yy = Y(trajZ[i]);
-    if(i===start) ctx.moveTo(XX(i),yy); else ctx.lineTo(XX(i),yy);
-  }
-  ctx.stroke();
-  // even/odd markers on last 40 of z
-  const m0 = Math.max(start, n-40);
-  for(let i=m0;i<n;i++){
-    ctx.fillStyle = (i%2===0) ? getCss('--det') : getCss('--now');
-    ctx.beginPath(); ctx.arc(XX(i), Y(trajZ[i]), 2.2, 0, 6.28); ctx.fill();
-  }
-  ctx.strokeStyle = getCss('--axis');
-  ctx.beginPath(); ctx.moveTo(pad.l, pad.t); ctx.lineTo(pad.l, pad.t+ph); ctx.lineTo(pad.l+pw, pad.t+ph); ctx.stroke();
-  ctx.fillStyle = getCss('--muted'); ctx.font = '11px system-ui';
-  ctx.fillText('t (last steps)', W/2 - 30, H-6);
-  ctx.fillText('+' + fmt(yMax,2), pad.l+4, pad.t+10);
-  ctx.fillText('-' + fmt(yMax,2), pad.l+4, pad.t+ph);
-}
-
-function drawMini(container, hist, title, bim){
-  const wrap = document.createElement('div');
-  wrap.className = 'mini';
-  wrap.innerHTML = `<div class="ttl">${title}${bim ? ' · <b style="color:var(--crit)">bimodal</b>' : ''}</div>`;
-  const c = document.createElement('canvas');
-  c.width = 220; c.height = 120; c.className = 'plot';
-  wrap.appendChild(c);
-  container.appendChild(wrap);
-  const {ctx, W, H} = dpiCanvas(c);
-  const pad = {l:4, r:4, t:4, b:4};
-  const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
-  const yMax = Math.max(0.1, Math.max(...hist.dens)*1.1);
-  const X = x => pad.l + (x - hist.xmin)/(hist.xmax - hist.xmin) * pw;
-  const Y = y => pad.t + (1 - y/yMax) * ph;
-  ctx.fillStyle = 'rgba(42,120,214,0.5)';
-  const bw = (hist.xmax - hist.xmin) / hist.dens.length;
-  for(let i=0;i<hist.dens.length;i++){
-    const x0 = X(hist.centers[i] - bw/2);
-    const x1 = X(hist.centers[i] + bw/2);
-    const y = Y(hist.dens[i]);
-    ctx.fillRect(x0, y, Math.max(1,x1-x0), pad.t+ph-y);
-  }
-  ctx.strokeStyle = getCss('--axis'); ctx.setLineDash([2,2]);
-  ctx.beginPath(); ctx.moveTo(X(0), pad.t); ctx.lineTo(X(0), pad.t+ph); ctx.stroke();
-  ctx.setLineDash([]);
-}
-
-/* ===================== Main update ===================== */
-let busy = false, timer = null, lastEdges = null;
-
-function schedule(){
-  clearTimeout(timer);
-  timer = setTimeout(runAll, 120);
-}
-
-function regimePill(p, e, chiEff){
-  if(p.py.mu > 0 && p.eta * p.py.mu >= 2){
-    return ['tangu', 'tangent unstable (ημ_y ≥ 2) — outside Eq. 37 regime'];
-  }
-  const eta = p.eta;
-  if(eta < e.eMS) return ['stable', 'mean-square stable'];
-  if(Number.isFinite(chiEff) && chiEff < 0 && eta >= e.eL)
-    return ['msu', 'bare χ > 0 but coupling self-stabilized (χ_eff < 0)'];
-  if(eta < e.eL) return ['msu', 'past η_MS · before η_L'];
-  return ['lyapu', 'past η_L · lobes forming'];
-}
-
-function etaSliderRange(edges, law){
-  if(law === 'spike'){
-    const lo = 0.1 * Math.min(edges.eMS, edges.eRare || edges.eMS);
-    const hi = 1.05 * edges.eDet;
-    return {etaLo: Math.max(1e-4, lo), etaHi: Math.max(hi, edges.eL * 2)};
-  }
-  return {etaLo: 0.25 * edges.eMS, etaHi: Math.max(2.2 * edges.eL, 1.15 * edges.eDet)};
-}
-
-function runAll(){
-  if(busy) return;
-  busy = true;
-  const p = readParams();
-  updateDef(p);
-  try{
-    const edges = computeEdges(p);
-    lastEdges = edges;
-    const {etaLo, etaHi} = etaSliderRange(edges, p.pz.law);
-
-    // main simulation
-    const simP = {...p, pz: {...p.pz, v: edges.vEff}};
-    const sim = runCloud2D(simP);
-    const bim = isBimodal(sim.histZ.centers, sim.histZ.dens);
-    const peaks = lobePeaks(sim.histZ.centers, sim.histZ.dens);
-    const pred = predictedFixedPoint(p, sim.ez2);
-
-    // effective Lyapunov edge with measured ȳ shift
-    const shift = 2 * p.bcoup * sim.ybar;
-    const eLeff = Math.abs(shift) > 1e-6
-      ? etaLyapunov(edges.pzEff, p.seed+7, shift) : edges.eL;
-    const Hcur = harmonicH(edges.pzEff, p.eta, p.seed+5, shift);
-
-    let edgeHtml =
-      `<span class="chip ms">$\\eta_{\\mathrm{MS}}$ = <b>${fmt(edges.eMS)}</b></span>` +
-      `<span class="chip det">$2/\\mu_z$ = <b>${fmt(edges.eDet)}</b></span>` +
-      `<span class="chip lyap">$\\eta_L$ = <b>${fmt(edges.eL)}</b></span>` +
-      `<span class="chip lyap">$\\eta_{L,\\mathrm{eff}}$ = <b>${fmt(eLeff)}</b></span>` +
-      `<span class="chip tang">$2/\\mu_y$ = <b>${fmt(edges.eTang)}</b></span>`;
-    if(Number.isFinite(edges.eRare)){
-      edgeHtml += `<span class="chip now">$2/h_{\\mathrm{high}}$ = <b>${fmt(edges.eRare)}</b></span>`;
+  let gmx=0;for(let i=0;i<grid.length;i++)if(grid[i]>gmx)gmx=grid[i];
+  const img=g.createImageData(W,H),dd=img.data,lg=Math.log(1+gmx);
+  for(let py=0;py<H;py++){
+    const by=NB-1-((py/H*NB)|0);
+    for(let px=0;px<W;px++){
+      const bx=(px/W*NB)|0;
+      const c=grid[by*NB+bx];
+      const t=lg>0?Math.log(1+c)/lg:0;
+      const rgb=heatColor(t);
+      const k=(py*W+px)*4;dd[k]=rgb[0];dd[k+1]=rgb[1];dd[k+2]=rgb[2];dd[k+3]=255;
     }
-    edgeHtml += `<span class="chip harm">$H_{\\mathrm{eff}}(\\eta)\\approx$ <b>${fmt(Hcur,2)}</b></span>`;
-    $('edges').innerHTML = edgeHtml;
-
-    const [cls, lab] = regimePill(p, edges, sim.chiEff);
-    $('regime').innerHTML = `<span class="pill ${cls}">${lab}</span>` +
-      (bim.bimodal ? ` <span class="pill bim">z-marginal bimodal</span>` : '');
-    typesetMath($('edges'));
-
-    const dChi = sim.chiBare - sim.chiEff;
-    $('stats').innerHTML =
-      `<span class="chip">χ̂ (bare)=<b>${fmt(sim.chiBare,3)}</b></span>` +
-      `<span class="chip ${dChi > 0.005 ? 'ok' : ''}">χ̂_eff=<b>${fmt(sim.chiEff,3)}</b></span>` +
-      `<span class="chip tang">ȳ=<b>${fmt(sim.ybar,4)}</b></span>` +
-      `<span class="chip">ȳ*pred=<b>${fmt(pred.ybarPred,4)}</b></span>` +
-      `<span class="chip">E[z²]=<b>${fmt(sim.ez2,4)}</b></span>` +
-      `<span class="chip">ν*=<b>${fmt(pred.nu,3)}</b></span>` +
-      `<span class="chip">z-peaks=<b>${fmt(peaks.left,2)}, ${fmt(peaks.right,2)}</b></span>` +
-      `<span class="chip">escapes=<b>${sim.escapes}</b></span>`;
-
-    $('hist_cap').textContent =
-      `N=${p.npart} particles · T=${p.steps} (burn ${p.burn}) · clip ${p.clip} · seed ${p.seed}` +
-      (bim.bimodal ? ' · z two-lobed' : ' · z not two-lobed');
-    $('scat_cap').textContent =
-      `post-burn-in cloud (subsampled) · ȳ measured ${fmt(sim.ybar,4)} vs predicted ${fmt(pred.ybarPred,4)}` +
-      ` · self-stabilization Δχ = ${fmt(dChi,3)}`;
-
-    drawScatter($('cscat'), sim.scat,
-      {nu: pred.nu, ybarPred: pred.ybarPred, ybarMeas: sim.ybar});
-    drawHist($('chist_z'), sim.histZ, {
-      xlabel: 'z', title: `η = ${fmt(p.eta,3)}`,
-      markers: Number.isFinite(pred.nu)
-        ? [{x: pred.nu, color: getCss('--harm')}, {x: -pred.nu, color: getCss('--harm')}] : [],
-    });
-    drawHist($('chist_y'), sim.histY, {
-      xlabel: 'y', color: 'rgba(122,79,201,0.45)', line: getCss('--tang'),
-      markers: Number.isFinite(pred.ybarPred) ? [{x: pred.ybarPred, color: getCss('--harm')}] : [],
-    });
-    drawTraj($('ctraj'), sim.trajZ, sim.trajY);
-
-    // strip across η
-    const strip = $('strip'); strip.innerHTML = '';
-    const etas = (p.pz.law === 'spike') ? [
-      ['0.5·2/h_hi', 0.5*(edges.eRare || edges.eMS)],
-      ['2/h_high', edges.eRare || edges.eMS],
-      ['0.175·2/μz', 0.175*edges.eDet],
-      ['0.5·2/μz', 0.5*edges.eDet],
-      ['2/μz', edges.eDet],
-    ] : [
-      ['0.6 η_MS', 0.6*edges.eMS],
-      ['0.5(η_MS+η_L)', 0.5*(edges.eMS+edges.eL)],
-      ['η_L', edges.eL],
-      ['2/μz', edges.eDet],
-      ['1.15·2/μz', 1.15*edges.eDet],
-    ];
-    etas.forEach(([labl, eta], i) => {
-      const s = runCloud2D({...simP, eta,
-        npart: Math.min(1500, p.npart), steps: Math.min(3500, p.steps),
-        burn: Math.min(1200, p.burn), seed: p.seed+20+i});
-      const b = isBimodal(s.histZ.centers, s.histZ.dens);
-      drawMini(strip, s.histZ, `<b>η=${fmt(eta)}</b> · ${labl}`, b.bimodal);
-    });
-
-    const toS = eta => Math.round(1000 * (eta - etaLo) / (etaHi - etaLo));
-    $('eta_s').value = String(Math.max(0, Math.min(1000, toS(p.eta))));
-    $('eta_cap').innerHTML =
-      `range [${fmt(etaLo)}, ${fmt(etaHi)}] · η<sub>MS</sub>=${fmt(edges.eMS)} · η<sub>L</sub>=${fmt(edges.eL)}` +
-      ` · 2/μ<sub>z</sub>=${fmt(edges.eDet)} · 2/μ<sub>y</sub>=${fmt(edges.eTang)}`;
-
-  } finally {
-    busy = false;
   }
+  g.putImageData(img,0,0);
+  // axes zero lines + theory markers
+  const X=z=>(z-VIEW.zlo)/(VIEW.zhi-VIEW.zlo)*W, Y=y=>H-(y-VIEW.ylo)/(VIEW.yhi-VIEW.ylo)*H;
+  g.strokeStyle="rgba(140,160,195,.35)";g.lineWidth=1;g.setLineDash([2,4]);
+  g.beginPath();g.moveTo(X(0),0);g.lineTo(X(0),H);g.moveTo(0,Y(0));g.lineTo(W,Y(0));g.stroke();
+  g.setLineDash([6,5]);g.lineWidth=1.6;
+  if(isFinite(P._nu)){g.strokeStyle="#6fb3ff";
+    g.beginPath();g.moveTo(X(P._nu),0);g.lineTo(X(P._nu),H);g.moveTo(X(-P._nu),0);g.lineTo(X(-P._nu),H);g.stroke()}
+  if(isFinite(P._yb)){g.strokeStyle="#ffb35c";
+    g.beginPath();g.moveTo(0,Y(P._yb));g.lineTo(W,Y(P._yb));g.stroke()}
+  g.setLineDash([]);
+  /* marginals */
+  const NBH=121;
+  const hz=histCounts(S.snapZ,n,VIEW.zlo,VIEW.zhi,NBH);
+  const hy=histCounts(S.snapY,n,VIEW.ylo,VIEW.yhi,NBH);
+  drawMarginal($("cvMz"),hz,"#6fb3ff",false,z=>(z-VIEW.zlo)/(VIEW.zhi-VIEW.zlo),[[P._nu,"#6fb3ff"],[-P._nu,"#6fb3ff"]]);
+  drawMarginal($("cvMy"),hy,"#ffb35c",true,y=>(y-VIEW.ylo)/(VIEW.yhi-VIEW.ylo),[[P._yb,"#ffb35c"]]);
+  /* lobe classification */
+  const mz=countModes(hz).length,myc=countModes(hy).length;
+  const lobes=Math.max(1,Math.min(mz,2))*Math.max(1,Math.min(myc,2));
+  let lbl;
+  if(mz>=2&&myc>=2)lbl="4 lobes — both directions past their edges";
+  else if(mz>=2)lbl="2 lobes — flip period-2 along z";
+  else if(myc>=2)lbl="2 lobes along y (tangent past its edge)";
+  else lbl="unimodal";
+  let pkTxt="—";
+  if(mz>=2){const pks=countModes(hz).map(b=>VIEW.zlo+(b+0.5)/NBH*(VIEW.zhi-VIEW.zlo));
+    const pos=pks.filter(p=>p>0);if(pos.length)pkTxt="±"+fmt(pos[pos.length-1],3)}
+  $("roNuE").textContent=pkTxt;
+  $("lobeBadge").textContent=lbl;
+}
+function drawMarginal(cv,h,color,vertical,frac,marks){
+  sizeCanvas(cv);const g=cv.getContext("2d");const W=cv.width,H=cv.height;
+  g.clearRect(0,0,W,H);
+  const s=smooth3(h),mx=Math.max(...s)||1,nb=s.length;
+  g.fillStyle=color+"cc";g.strokeStyle=color;g.lineWidth=1;
+  g.beginPath();
+  if(!vertical){
+    g.moveTo(0,H);
+    for(let i=0;i<nb;i++){const x=(i+0.5)/nb*W,y=H-(s[i]/mx)*(H-8);g.lineTo(x,y)}
+    g.lineTo(W,H);g.closePath();
+  }else{
+    g.moveTo(0,H);
+    for(let i=0;i<nb;i++){const y=H-(i+0.5)/nb*H,x=(s[i]/mx)*(W-8);g.lineTo(x,y)}
+    g.lineTo(0,0);g.closePath();
+  }
+  g.globalAlpha=0.35;g.fill();g.globalAlpha=1;g.stroke();
+  g.setLineDash([5,4]);g.lineWidth=1.2;
+  for(const[m,c]of marks){
+    if(!isFinite(m))continue;const f=frac(m);if(f<0||f>1)continue;
+    g.strokeStyle=c;g.beginPath();
+    if(!vertical){g.moveTo(f*W,0);g.lineTo(f*W,H)}else{g.moveTo(0,H-f*H);g.lineTo(W,H-f*H)}
+    g.stroke();
+  }
+  g.setLineDash([]);
+}
+function renderTraj(){
+  const T=P.T,K=Math.min(260,T),start=T-K;
+  const cz=$("cvTz");sizeCanvas(cz);const g=cz.getContext("2d");
+  const W=cz.width,H=cz.height;g.clearRect(0,0,W,H);
+  let lo=1e9,hi=-1e9;for(let t=start;t<T;t++){const v=S.trajZ[t];if(v<lo)lo=v;if(v>hi)hi=v}
+  const pad=(hi-lo)*0.12+1e-6;lo-=pad;hi+=pad;
+  const X=t=>(t-start)/(K-1)*W, Y=v=>H-(v-lo)/(hi-lo)*H;
+  g.strokeStyle="rgba(140,160,195,.3)";g.setLineDash([2,4]);g.beginPath();g.moveTo(0,Y(0));g.lineTo(W,Y(0));g.stroke();g.setLineDash([]);
+  g.strokeStyle="rgba(111,179,255,.55)";g.lineWidth=1;g.beginPath();
+  for(let t=start;t<T;t++){const x=X(t),y=Y(S.trajZ[t]);t===start?g.moveTo(x,y):g.lineTo(x,y)}
+  g.stroke();
+  for(let t=start;t<T;t++){g.fillStyle=(t%2===0)?"#7be0a3":"#ffb35c";
+    g.beginPath();g.arc(X(t),Y(S.trajZ[t]),2.1*(devicePixelRatio||1),0,7);g.fill()}
+  const cy=$("cvTy");sizeCanvas(cy);const gy=cy.getContext("2d");
+  const W2=cy.width,H2=cy.height;gy.clearRect(0,0,W2,H2);
+  let lo2=1e9,hi2=-1e9;for(let t=start;t<T;t++){const v=S.trajY[t];if(v<lo2)lo2=v;if(v>hi2)hi2=v}
+  const pad2=(hi2-lo2)*0.15+1e-6;lo2-=pad2;hi2+=pad2;
+  const Y2=v=>H2-(v-lo2)/(hi2-lo2)*H2;
+  gy.strokeStyle="rgba(140,160,195,.3)";gy.setLineDash([2,4]);gy.beginPath();gy.moveTo(0,Y2(0));gy.lineTo(W2,Y2(0));gy.stroke();
+  if(isFinite(P._yb)){gy.strokeStyle="rgba(255,179,92,.7)";gy.beginPath();gy.moveTo(0,Y2(P._yb));gy.lineTo(W2,Y2(P._yb));gy.stroke()}
+  gy.setLineDash([]);
+  gy.strokeStyle="#ffb35c";gy.lineWidth=1.3;gy.beginPath();
+  for(let t=start;t<T;t++){const x=X(t)/W*W2,y=Y2(S.trajY[t]);t===start?gy.moveTo(x,y):gy.lineTo(x,y)}
+  gy.stroke();
 }
 
-/* ===================== Wire controls ===================== */
-syncSlider('mu_z', 'mu_z_s', x => Math.round(x*100), s => s/100);
-syncSlider('v_z', 'v_z_s', x => Math.round(x*200), s => s/200);
-syncSlider('mu_y', 'mu_y_s', x => Math.round(x*100), s => s/100);
-syncSlider('v_y', 'v_y_s', x => Math.round(x*200), s => s/200);
-syncSlider('bcoup', 'bcoup_s', x => Math.max(-200, Math.min(200, Math.round(x*40))), s => s/40);
-syncSlider('c4', 'c4_s', x => Math.max(-200, Math.min(200, Math.round(x*10))), s => s/10);
-syncSlider('c6', 'c6_s', x => Math.max(0, Math.min(200, Math.round(x*20))), s => s/20);
-syncSlider('sig_z', 'sig_z_s', x => Math.round(x*400), s => s/400);
-syncSlider('sig_y', 'sig_y_s', x => Math.round(x*400), s => s/400);
-syncSlider('eps', 'eps_s', x => Math.max(1, Math.min(200, Math.round(x*1000))), s => s/1000);
-syncSlider('h_low', 'h_low_s', x => Math.max(0, Math.min(100, Math.round(x*100))), s => s/100);
-
-$('eta_s').addEventListener('input', () => {
-  const p = readParams();
-  const e = lastEdges || computeEdges(p);
-  const {etaLo, etaHi} = etaSliderRange(e, p.pz.law);
-  $('eta').value = String(+(etaLo + (etaHi-etaLo)*($('eta_s').value/1000)).toFixed(4));
-  schedule();
-});
-$('eta').addEventListener('change', schedule);
-$('law_z').addEventListener('change', schedule);
-$('law_y').addEventListener('change', schedule);
-['npart','steps','burn','clip','seed'].forEach(id => $(id).addEventListener('change', schedule));
-$('run').addEventListener('click', runAll);
-$('rerun').addEventListener('click', () => {
-  $('seed').value = String(((+$('seed').value) + 1) | 0);
-  runAll();
-});
-
-/*
- Preset matrix. Fields:
- law_z, mu_z, v_z, [eps, h_low], law_y, mu_y, v_y, bcoup, c4, c6, sig_z, sig_y, eta
-*/
-const PRESETS = [
-  {name: 'Coupled self-stabilization (default)',
-   law_z:'gaussian', mu_z:1, v_z:0.81, law_y:'deterministic', mu_y:0.5, v_y:0,
-   bcoup:0.6, c4:-6, c6:2, sig_z:0, sig_y:0, eta:2.0},
-  {name: 'β=0 control · 1-D multiplicative below edge',
-   law_z:'gaussian', mu_z:1, v_z:0.81, law_y:'deterministic', mu_y:0.5, v_y:0,
-   bcoup:0, c4:-6, c6:2, sig_z:0, sig_y:0, eta:1.9},
-  {name: 'Additive-like flip · ημz>2, tiny vz',
-   law_z:'deterministic', mu_z:1, v_z:0, law_y:'deterministic', mu_y:0.5, v_y:0,
-   bcoup:0.3, c4:-6, c6:2, sig_z:0.03, sig_y:0, eta:2.15},
-  {name: 'Suppression window · above edge, moderate vz',
-   law_z:'gaussian', mu_z:1, v_z:0.09, law_y:'deterministic', mu_y:0.5, v_y:0,
-   bcoup:0.3, c4:-6, c6:2, sig_z:0, sig_y:0, eta:2.1},
-  {name: 'Two-point · clean bimodal @ ημz=1.25',
-   law_z:'bernoulli', mu_z:1, v_z:0.85, law_y:'deterministic', mu_y:0.5, v_y:0,
-   bcoup:0.3, c4:-6, c6:2, sig_z:0, sig_y:0, eta:1.25},
-  {name: 'Super-quartic rescued by coupling (c4>0)',
-   law_z:'deterministic', mu_z:1, v_z:0, law_y:'deterministic', mu_y:0.5, v_y:0,
-   bcoup:1.0, c4:3, c6:2, sig_z:0.02, sig_y:0, eta:2.2},
-  {name: 'Super-quartic control (c4>0, β=0)',
-   law_z:'deterministic', mu_z:1, v_z:0, law_y:'deterministic', mu_y:0.5, v_y:0,
-   bcoup:0, c4:3, c6:2, sig_z:0.02, sig_y:0, eta:2.2},
-  {name: 'Tangent near its edge · ημy→2, σy>0',
-   law_z:'gaussian', mu_z:1, v_z:0.04, law_y:'deterministic', mu_y:0.93, v_y:0,
-   bcoup:0.5, c4:-6, c6:2, sig_z:0, sig_y:0.05, eta:2.05},
-  {name: 'Both curvatures sampled (Gaussian × Gaussian)',
-   law_z:'gaussian', mu_z:1, v_z:0.36, law_y:'gaussian', mu_y:0.5, v_y:0.25,
-   bcoup:0.5, c4:-6, c6:2, sig_z:0, sig_y:0, eta:2.0},
-  {name: 'Rare spike on h · far below 2/μz',
-   law_z:'spike', mu_z:1, v_z:49, eps:0.02, h_low:0, law_y:'deterministic', mu_y:0.5, v_y:0,
-   bcoup:0.3, c4:-6, c6:2, sig_z:0, sig_y:0, eta:0.35},
-];
-const presetBox = $('presets');
-PRESETS.forEach(pr => {
-  const b = document.createElement('button');
-  b.textContent = pr.name;
-  b.addEventListener('click', () => {
-    $('law_z').value = pr.law_z;
-    $('mu_z').value = pr.mu_z; $('v_z').value = pr.v_z;
-    $('law_y').value = pr.law_y;
-    $('mu_y').value = pr.mu_y; $('v_y').value = pr.v_y;
-    $('bcoup').value = pr.bcoup; $('c4').value = pr.c4; $('c6').value = pr.c6;
-    $('sig_z').value = pr.sig_z; $('sig_y').value = pr.sig_y;
-    $('eta').value = pr.eta;
-    if(pr.eps != null) $('eps').value = pr.eps;
-    if(pr.h_low != null) $('h_low').value = pr.h_low;
-    ['mu_z','v_z','mu_y','v_y','bcoup','c4','c6','sig_z','sig_y','eps','h_low'].forEach(id => {
-      if($(id)) $(id).dispatchEvent(new Event('change'));
-    });
-    runAll();
+/* ---------------- eta strip ---------------- */
+function renderStrip(){
+  readParams();recomputeEdges();
+  const row=$("stripRow");row.innerHTML="";
+  const Ez=S.edges.z;
+  const eMax=+$("eta").max;
+  const anchors=[0.9*Ez.ms,0.5*(Ez.ms+Ez.L),1.01*Ez.L,
+    isFinite(Ez.H)?0.5*(Ez.L+Ez.H):1.12*Ez.L,
+    isFinite(Ez.H)?1.0*Ez.H:1.22*Ez.L,
+    isFinite(Ez.H)?1.08*Ez.H:1.35*Ez.L,
+    isFinite(Ez.H)?1.18*Ez.H:1.5*Ez.L].map(e=>Math.min(e,eMax));
+  const cells=anchors.map(e=>{
+    const d=document.createElement("div");d.className="mini";
+    const c=document.createElement("canvas");d.appendChild(c);
+    const cap=document.createElement("div");cap.className="cap";
+    let reg="MS-stable";if(e>Ez.ms)reg="post-MS";if(e>Ez.L)reg="post-Lyap";
+    if(isFinite(Ez.H)&&e>=Ez.H*0.999)reg="post-harm";
+    cap.textContent="η="+e.toFixed(2)+" · "+reg;d.appendChild(cap);row.appendChild(d);
+    return{c,e};
   });
-  presetBox.appendChild(b);
-});
-
-window.addEventListener('resize', () => { if(lastEdges) schedule(); });
-function boot(){
-  typesetMath(document.body);
-  runAll();
+  let idx=0;$("status").textContent="strip: simulating 1/7…";
+  function one(){
+    if(idx>=cells.length){$("status").textContent="strip done";return}
+    const {c,e}=cells[idx];
+    const res=quickSim(e);
+    drawStripPanel(c,res);
+    idx++;$("status").textContent="strip: simulating "+(idx+1)+"/7…";
+    setTimeout(one,10);
+  }
+  setTimeout(one,10);
 }
-if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => setTimeout(boot, 50));
-else setTimeout(boot, 50);
+function quickSim(eta){
+  const rnd=mulberry32((P.seed+91)*2654435761>>>0||1),gauss=makeGauss(rnd);
+  const lawZ=makeLaw(P.lawZ,P.muZ,P.vZ,P.epsZ,P.lowZ,rnd,gauss);
+  const lawY=makeLaw(P.lawY,P.muY,P.vY,P.epsY,P.lowY,rnd,gauss);
+  const N=1200,T=1600,burn=900,beta=P.beta,clip=P.clip;
+  const c4z6=P.c4z/6,c6z120=P.c6z/120,c4y6=P.c4y/6,c6y120=P.c6y/120,sz=P.sz,sy=P.sy;
+  const z=new Float64Array(N),y=new Float64Array(N);
+  for(let i=0;i<N;i++){z[i]=0.3*gauss();y[i]=0.3*gauss()}
+  const SZ=[],SY=[];
+  for(let t=0;t<T;t++){
+    for(let i=0;i<N;i++){
+      const hz=lawZ.sample(),hy=lawY.sample();
+      const zi=z[i],yi=y[i];
+      let dz=eta*((hz+2*beta*yi)*zi+c4z6*zi**3+c6z120*zi**5);
+      let dy=eta*(hy*yi+beta*zi*zi+c4y6*yi**3+c6y120*yi**5);
+      dz=Math.max(-clip,Math.min(clip,dz));dy=Math.max(-clip,Math.min(clip,dy));
+      let zn=zi-dz+(sz?sz*gauss():0),yn=yi-dy+(sy?sy*gauss():0);
+      if(Math.abs(zn)>20)zn=0.1*gauss();
+      if(Math.abs(yn)>20)yn=0.1*gauss();
+      z[i]=zn;y[i]=yn;
+    }
+    if(t>=burn&&t%25===0){for(let i=0;i<N;i+=3){SZ.push(z[i]);SY.push(y[i])}}
+  }
+  return{SZ,SY};
+}
+function drawStripPanel(cv,res){
+  sizeCanvas(cv);const g=cv.getContext("2d");const W=cv.width,H=cv.height;
+  g.clearRect(0,0,W,H);
+  const az=Float64Array.from(res.SZ),ay=Float64Array.from(res.SY);
+  const zr=robustRange(az,az.length,0.3);const zh=Math.max(Math.abs(zr[0]),Math.abs(zr[1]),0.02);
+  const hz=smooth3(histCounts(az,az.length,-zh,zh,61));
+  const yr=robustRange(ay,ay.length,0.3);
+  const hy=smooth3(histCounts(ay,ay.length,yr[0],yr[1],61));
+  const mz=Math.max(...hz)||1,my2=Math.max(...hy)||1;
+  const half=H*0.62;
+  g.fillStyle="rgba(111,179,255,.5)";g.strokeStyle="#6fb3ff";g.beginPath();g.moveTo(0,half);
+  for(let i=0;i<61;i++){g.lineTo((i+0.5)/61*W,half-hz[i]/mz*(half-4))}
+  g.lineTo(W,half);g.closePath();g.fill();g.stroke();
+  g.fillStyle="rgba(255,179,92,.4)";g.strokeStyle="#ffb35c";g.beginPath();g.moveTo(0,half+1);
+  for(let i=0;i<61;i++){g.lineTo((i+0.5)/61*W,half+1+hy[i]/my2*(H-half-3))}
+  g.lineTo(W,half+1);g.closePath();g.fill();g.stroke();
+  g.strokeStyle="rgba(140,160,195,.4)";g.setLineDash([2,3]);g.beginPath();g.moveTo(W/2,0);g.lineTo(W/2,half);g.stroke();g.setLineDash([]);
+}
 
+/* ---------------- presets ---------------- */
+const PRESETS=[
+ {n:"Gaussian · clean 2 lobes",p:{lawZ:"gauss",lawY:"gauss",muZ:1,vZ:0.0025,muY:0.5,vY:0.0025,eta:2.5,beta:0.3,c4z:-0.75,c4y:0,c6z:6,c6y:6,sz:0.01,sy:0.01}},
+ {n:"Gaussian · v too big (washout)",p:{lawZ:"gauss",lawY:"gauss",muZ:1,vZ:0.05,muY:0.5,vY:0.0025,eta:2.5,beta:0.3,c4z:-0.75,c4y:0,c6z:6,c6y:6,sz:0.01,sy:0.01}},
+ {n:"Deterministic flip (Thm 1)",p:{lawZ:"det",lawY:"det",muZ:1,vZ:0,muY:0.5,vY:0,eta:2.35,beta:0.3,c4z:-0.75,c4y:0,c6z:6,c6y:6,sz:0.02,sy:0.01}},
+ {n:"Uniform curvature",p:{lawZ:"uniform",lawY:"uniform",muZ:1,vZ:0.01,muY:0.5,vY:0.005,eta:2.5,beta:0.3,c4z:-0.75,c4y:0,c6z:6,c6y:6,sz:0.01,sy:0.01}},
+ {n:"Two-point curvature",p:{lawZ:"twopoint",lawY:"gauss",muZ:1,vZ:0.02,muY:0.5,vY:0.0025,eta:2.5,beta:0.3,c4z:-0.75,c4y:0,c6z:6,c6y:6,sz:0.01,sy:0.01}},
+ {n:"Three-point curvature",p:{lawZ:"threepoint",lawY:"gauss",muZ:1,vZ:0.02,muY:0.5,vY:0.0025,eta:2.5,beta:0.3,c4z:-0.75,c4y:0,c6z:6,c6y:6,sz:0.01,sy:0.01}},
+ {n:"scaled χ² curvature",p:{lawZ:"chisq",lawY:"gauss",muZ:1,vZ:0.01,muY:0.5,vY:0.0025,eta:2.5,beta:0.3,c4z:-0.75,c4y:0,c6z:6,c6y:6,sz:0.01,sy:0.01}},
+ {n:"Rare spike in z",p:{lawZ:"rare",lawY:"gauss",muZ:1,vZ:0.0025,muY:0.5,vY:0.0025,epsZ:0.05,lowZ:0.2,eta:1.4,beta:0.15,c4z:-0.75,c4y:0,c6z:6,c6y:6,sz:0.01,sy:0.01}},
+ {n:"Super-quartic rescued by coupling",p:{lawZ:"gauss",lawY:"gauss",muZ:1,vZ:0.0025,muY:0.5,vY:0.0025,eta:2.3,beta:0.7,c4z:0.6,c4y:0,c6z:6,c6y:6,sz:0.01,sy:0.01}},
+ {n:"Four lobes (β≈0, both past edge)",p:{lawZ:"gauss",lawY:"gauss",muZ:1,vZ:0.0025,muY:1,vY:0.0025,eta:2.3,beta:0,c4z:-0.75,c4y:-0.75,c6z:6,c6y:6,sz:0.01,sy:0.01}},
+];
+function applyPreset(p){
+  for(const[k,v]of Object.entries(p)){const el=$(k);if(el)el.value=v}
+  syncLabels();scheduleRun(60);
+}
+
+/* ---------------- wiring ---------------- */
+function syncLabels(){
+  readParams();
+  const set=(id,v,d=3)=>{const e=$(id+"V");if(e)e.textContent=fmt(v,d)};
+  set("eta",P.eta);set("muZ",P.muZ,2);set("vZ",P.vZ,4);set("muY",P.muY,2);set("vY",P.vY,4);
+  set("epsZ",P.epsZ,3);set("lowZ",P.lowZ,2);set("epsY",P.epsY,3);set("lowY",P.lowY,2);
+  set("beta",P.beta,2);set("c4z",P.c4z,2);set("c4y",P.c4y,2);set("c6z",P.c6z,1);set("c6y",P.c6y,1);
+  set("sz",P.sz,3);set("sy",P.sy,3);set("clip",P.clip,1);
+  document.querySelectorAll(".rareZ").forEach(e=>e.hidden=(P.lawZ!=="rare"));
+  document.querySelectorAll(".rareY").forEach(e=>e.hidden=(P.lawY!=="rare"));
+}
+let runTimer=null;
+function scheduleRun(ms=420){clearTimeout(runTimer);runTimer=setTimeout(runSim,ms)}
+function init(){
+  for(const sel of["lawZ","lawY"]){const s=$(sel);
+    for(const l of LAWS){const o=document.createElement("option");o.value=l.id;o.textContent=l.name;s.appendChild(o)}}
+  $("lawZ").value="gauss";$("lawY").value="gauss";
+  const chips=$("presetChips");
+  for(const pr of PRESETS){const b=document.createElement("button");b.textContent=pr.n;
+    b.addEventListener("click",()=>applyPreset(pr.p));chips.appendChild(b)}
+  const ids=["eta","muZ","vZ","muY","vY","epsZ","lowZ","epsY","lowY","beta","c4z","c4y","c6z","c6y","sz","sy","clip","lawZ","lawY","Np","Tn","Bn"];
+  for(const id of ids){$(id).addEventListener("input",()=>{syncLabels();
+    if(id==="eta"&&S.poolZ){drawLadder("ladderZ",S.edges.z);drawLadder("ladderY",S.edges.y);updateReadouts()}
+    scheduleRun()})}
+  $("seed").addEventListener("input",()=>scheduleRun());
+  $("runBtn").addEventListener("click",()=>{clearTimeout(runTimer);runSim()});
+  $("reseedBtn").addEventListener("click",()=>{$("seed").value=(Math.random()*1e6)|0;runSim()});
+  $("stripBtn").addEventListener("click",renderStrip);
+  window.addEventListener("resize",()=>{if(S.nSnap){renderCorner();renderTraj()}});
+  syncLabels();recomputeEdges();runSim();
+}
+document.addEventListener("DOMContentLoaded",()=>{
+  init();
+  const tryKatex=()=>{if(window.renderMathInElement){renderMathInElement(document.body,{delimiters:[
+    {left:"$$",right:"$$",display:true},{left:"\\(",right:"\\)",display:false}]})}else setTimeout(tryKatex,300)};
+  tryKatex();
+});
 </script>
 </body>
 </html>
