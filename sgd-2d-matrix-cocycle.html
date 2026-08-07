@@ -102,7 +102,7 @@ button.primary{background:#1e3f6e;border-color:#3a67a8}
   <div class="card">
     <h3>Presets</h3>
     <div class="chips" id="presetChips"></div>
-    <div class="note-sm">Start with <b>commuting sanity (φ=0)</b>, then raise φ. Self-stab coeffs are mild — retune if lobes wash out or explode.</div>
+    <div class="note-sm">For ±x₁ lobes with isotropic self-stab, use <b>iso ±x₁ lobes</b> (needs |c₄|≳1, clip≳6 — mild c₄≈−0.35 stays unimodal at 0). Then raise φ.</div>
   </div>
 
   <div class="card">
@@ -537,20 +537,30 @@ function runProductCurve(){
   $("status").textContent="product curve ready";
 }
 const PRESETS=[
-  {name:"commuting sanity (φ=0)", set:{phi:0, eta:1.6, mu1:1, v1:0.01, mu2:0.45, v2:0.005, c4:-0.25, c6:5, sig:0.02, law1:"gauss", law2:"gauss"}},
-  {name:"mild misalignment", set:{phi:0.35, eta:1.8, mu1:1, v1:0.01, mu2:0.45, v2:0.005, c4:-0.35, c6:4, sig:0.02, law1:"gauss", law2:"gauss"}},
-  {name:"strong non-commute", set:{phi:1.0, eta:1.9, mu1:1, v1:0.02, mu2:0.4, v2:0.01, c4:-0.3, c6:6, sig:0.025, law1:"gauss", law2:"gauss"}},
-  {name:"past edge · soft lobes", set:{phi:0.4, eta:2.2, mu1:1, v1:0.008, mu2:0.5, v2:0.004, c4:-0.55, c6:8, sig:0.03, law1:"gauss", law2:"gauss"}},
-  {name:"linear only (c₄=c₆=0)", set:{phi:0.4, eta:1.7, mu1:1, v1:0.01, mu2:0.45, v2:0.005, c4:0, c6:0, sig:0.04, law1:"gauss", law2:"gauss"}},
-  {name:"two-point eigenvalues", set:{phi:0.5, eta:1.85, mu1:1, v1:0.04, mu2:0.4, v2:0.02, c4:-0.4, c6:5, sig:0.02, law1:"twopoint", law2:"twopoint"}},
+  {id:"commute", name:"commuting sanity (φ=0)", set:{phi:0, eta:1.6, mu1:1, v1:0.01, mu2:0.45, v2:0.005, c4:-0.25, c6:5, sig:0.02, clip:2.5, law1:"gauss", law2:"gauss"}},
+  /* niches from scan_isotropic_niches.py — iso radial self-stab CAN make ±x₁ lobes if |c₄| is large enough */
+  {id:"iso-lobes", name:"iso ±x₁ lobes (φ=0)", set:{phi:0, eta:2.5, mu1:1, v1:0.0025, mu2:0.45, v2:0.0025, c4:-1.1, c6:4, sig:0.015, clip:8, law1:"gauss", law2:"gauss"}},
+  {id:"iso-strong", name:"iso strong lobes", set:{phi:0, eta:2.2, mu1:1, v1:0.0025, mu2:0.45, v2:0.0025, c4:-1.5, c6:4, sig:0.015, clip:8, law1:"gauss", law2:"gauss"}},
+  {id:"mild-phi", name:"mild misalignment", set:{phi:0.35, eta:1.8, mu1:1, v1:0.01, mu2:0.45, v2:0.005, c4:-0.35, c6:4, sig:0.02, clip:2.5, law1:"gauss", law2:"gauss"}},
+  {id:"strong-phi", name:"strong non-commute", set:{phi:1.0, eta:1.9, mu1:1, v1:0.02, mu2:0.4, v2:0.01, c4:-0.3, c6:6, sig:0.025, clip:2.5, law1:"gauss", law2:"gauss"}},
+  {id:"soft-lobes", name:"past edge · soft lobes", set:{phi:0.4, eta:2.2, mu1:1, v1:0.008, mu2:0.5, v2:0.004, c4:-0.55, c6:8, sig:0.03, clip:3, law1:"gauss", law2:"gauss"}},
+  {id:"linear", name:"linear only (c₄=c₆=0)", set:{phi:0.4, eta:1.7, mu1:1, v1:0.01, mu2:0.45, v2:0.005, c4:0, c6:0, sig:0.04, clip:2.5, law1:"gauss", law2:"gauss"}},
+  {id:"twopoint", name:"two-point eigenvalues", set:{phi:0.5, eta:1.85, mu1:1, v1:0.04, mu2:0.4, v2:0.02, c4:-0.4, c6:5, sig:0.02, clip:2.5, law1:"twopoint", law2:"twopoint"}},
 ];
 function applyPreset(p){
   const s=p.set;
   $("phi").value=s.phi; $("eta").value=s.eta;
   $("mu1").value=s.mu1; $("v1").value=s.v1; $("mu2").value=s.mu2; $("v2").value=s.v2;
   $("c4").value=s.c4; $("c6").value=s.c6; $("sig").value=s.sig;
+  if(s.clip!=null) $("clip").value=s.clip;
   $("law1").value=s.law1; $("law2").value=s.law2;
   syncLabels(); runSim();
+}
+function presetFromURL(){
+  const q=new URLSearchParams(location.search);
+  const id=(q.get("preset")||"").trim();
+  if(!id) return null;
+  return PRESETS.find(p=>p.id===id) || null;
 }
 function fillLaws(){
   for(const id of ["law1","law2"]){const sel=$(id); sel.innerHTML="";
@@ -564,7 +574,8 @@ function wire(){
   $("runBtn").onclick=()=>runSim();
   $("reseedBtn").onclick=()=>{ $("seed").value=(+$("seed").value+1)|0; runSim(); };
   $("prodBtn").onclick=()=>runProductCurve();
-  syncLabels(); applyPreset(PRESETS[1]);
+  syncLabels();
+  applyPreset(presetFromURL() || PRESETS.find(p=>p.id==="iso-lobes") || PRESETS[1]);
 }
 document.addEventListener("DOMContentLoaded",()=>{
   wire();
