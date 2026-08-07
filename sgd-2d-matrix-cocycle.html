@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>2-D SGD · non-commutative matrix cocycle</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<style>
+:root{
+  --bg:#0b1120; --panel:#111a2e; --panel2:#0e1626; --line:#22304c; --line2:#1a2740;
+  --ink:#dbe4f3; --dim:#8ea0bf; --faint:#5c6d8c;
+  --z:#6fb3ff; --y:#ffb35c; --ms:#4fd8c4; --lyap:#b48cff; --ok:#5fd08a; --warn:#ffd166; --bad:#ff7a9e;
+  --serif:"STIX Two Text","Iowan Old Style",Georgia,"Times New Roman",serif;
+  --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14.5px;line-height:1.5}
+a{color:var(--z)}
+.wrap{max-width:1280px;margin:0 auto;padding:26px 22px 80px}
+header{border-bottom:1px solid var(--line);padding-bottom:20px;margin-bottom:22px}
+.eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+h1{font-family:var(--serif);font-weight:600;font-size:28px;margin:8px 0 2px}
+h1 .thin{color:var(--dim);font-weight:400}
+.sub{color:var(--dim);max-width:78ch;margin:6px 0 12px}
+.eqbox{font-size:14.5px;background:var(--panel2);border:1px solid var(--line2);border-radius:10px;padding:12px 16px;overflow-x:auto}
+.eqbox .note{font-size:12.5px;color:var(--dim);margin-top:6px}
+.cols{display:grid;grid-template-columns:340px 1fr;gap:20px;align-items:start}
+@media(max-width:980px){.cols{grid-template-columns:1fr}}
+.side{position:sticky;top:14px;display:flex;flex-direction:column;gap:12px;max-height:calc(100vh - 28px);overflow-y:auto;padding-right:2px}
+@media(max-width:980px){.side{position:static;max-height:none}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:13px 14px}
+.card h3{margin:0 0 9px;font-family:var(--mono);font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);font-weight:600}
+.row{display:flex;align-items:center;gap:8px;margin:7px 0}
+.row label{flex:0 0 118px;font-size:13px;color:var(--dim)}
+.row label .k{font-family:var(--serif);font-style:italic;color:var(--ink)}
+.row input[type=range]{flex:1;accent-color:var(--z);min-width:0}
+.row .val{font-family:var(--mono);font-size:12px;flex:0 0 64px;text-align:right}
+select,input[type=number]{background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:4px 7px;font-family:var(--mono);font-size:12.5px}
+select{width:100%}
+button{background:#1b2a47;border:1px solid #2c4270;color:var(--ink);border-radius:8px;padding:7px 12px;font-family:var(--mono);font-size:12.5px;cursor:pointer}
+button:hover{background:#22345a}
+button.primary{background:#1e3f6e;border-color:#3a67a8}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips button{padding:5px 9px;font-size:11.5px;border-radius:999px;background:var(--panel2)}
+.note-sm{font-size:12.5px;color:var(--dim);margin-top:8px}
+.readouts{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+@media(max-width:900px){.readouts{grid-template-columns:1fr}}
+.ro table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px}
+.ro td{padding:2.5px 0;border-bottom:1px dotted var(--line2)}
+.ro td:last-child{text-align:right}
+.ro td:first-child{color:var(--dim)}
+.badge{display:inline-block;font-family:var(--mono);font-size:11px;border-radius:999px;padding:2px 9px;border:1px solid var(--line)}
+.badge.ok{color:var(--ok);border-color:#2c5a41}
+.badge.warn{color:var(--warn);border-color:#6b5a26}
+.badge.bad{color:var(--bad);border-color:#6b2c40}
+.corner{display:grid;grid-template-columns:1fr 130px;grid-template-rows:110px 1fr;gap:6px}
+.corner .cell{background:var(--panel2);border:1px solid var(--line2);border-radius:10px;overflow:hidden;position:relative}
+.corner canvas{display:block;width:100%;height:100%}
+.corner .lbl{position:absolute;font-family:var(--mono);font-size:10.5px;color:var(--faint);pointer-events:none}
+.plots2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
+.cellplot{background:var(--panel2);border:1px solid var(--line2);border-radius:10px;overflow:hidden;height:220px;position:relative}
+.cellplot canvas{display:block;width:100%;height:100%}
+.ladder{position:relative;height:14px;border-radius:4px;overflow:hidden;margin:6px 0 2px;border:1px solid var(--line2);background:var(--panel2)}
+.ladder .band{position:absolute;top:0;bottom:0}
+.ladder .tick{position:absolute;top:0;bottom:0;width:2px}
+.etalegend{display:flex;gap:10px;flex-wrap:wrap;font-family:var(--mono);font-size:10.5px;color:var(--dim);margin-top:5px}
+.etalegend span i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+.footer{margin-top:26px;color:var(--faint);font-size:12.5px;border-top:1px solid var(--line);padding-top:14px}
+.statusline{font-family:var(--mono);font-size:11.5px;color:var(--dim);min-height:16px;margin-top:6px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div class="eyebrow">Interactive lab · non-commutative matrix cocycle · companion to the commutative 2-D GIF</div>
+  <h1>SGD iterates under <span class="thin">Π<sub>t</sub>(I − η H<sub>t</sub>)</span></h1>
+  <p class="sub">
+    Each step draws a random matrix Hessian with stochastic <b>eigenvalues and eigenvectors</b>
+    \(H_t=R(\theta_t)\,\mathrm{diag}(\lambda_{1,t},\lambda_{2,t})\,R(\theta_t)^\top\).
+    Factors generally <b>do not commute</b> when the misalignment \(\phi>0\).
+    All plots are in a <b>fixed lab frame</b> \((x_1,x_2)\) — not a rotating eigenframe.
+    The commutative 2-D lab is unchanged: <a href="sgd-2d-bimodality.html">sgd-2d-bimodality.html</a>.
+  </p>
+  <div class="eqbox">
+  $$x_{t+1}=(I-\eta H_t)\,x_t-\eta\Big(\tfrac{c_4}{6}\|x_t\|^2+\tfrac{c_6}{120}\|x_t\|^4\Big)x_t+\sigma\,\xi_t,
+  \qquad H_t=R(\theta_t)\,\mathrm{diag}(\lambda_{1,t},\lambda_{2,t})\,R(\theta_t)^\top$$
+  <div class="note">
+    Stochasticity lives only in \(H_t\). Self-stabilization is a <b>deterministic isotropic</b> quartic/sextic in the lab frame
+    (start mild — aggressive GIF \(c_4\) is often too strong here).
+    Linear diagnostics use \(\prod(I-\eta H_t)\): top Lyapunov \(\chi\) and short-horizon \(\|M_k\|_2\).
+  </div>
+  </div>
+</header>
+
+<div class="cols">
+<div class="side">
+
+  <div class="card">
+    <h3>Presets</h3>
+    <div class="chips" id="presetChips"></div>
+    <div class="note-sm">Start with <b>commuting sanity (φ=0)</b>, then raise φ. Self-stab coeffs are mild — retune if lobes wash out or explode.</div>
+  </div>
+
+  <div class="card">
+    <h3>Step size</h3>
+    <div class="row"><label><span class="k">η</span></label>
+      <input type="range" id="eta" min="0.2" max="3.5" step="0.005" value="1.8">
+      <span class="val" id="etaV">1.800</span></div>
+    <div class="ladder" id="ladder"></div>
+    <div class="etalegend">
+      <span><i style="background:#123c3a"></i>below 2/μ₁</span>
+      <span><i style="background:#3a2d14"></i>past 2/μ₁</span>
+      <span><i style="background:#7f92b3"></i>2/μ₁</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Eigenvalue laws</h3>
+    <div class="row"><label>law λ₁</label><select id="law1"></select></div>
+    <div class="row"><label>mean <span class="k">μ₁</span></label><input type="range" id="mu1" min="0.3" max="2.5" step="0.01" value="1.0"><span class="val" id="mu1V"></span></div>
+    <div class="row"><label>var <span class="k">v₁</span></label><input type="range" id="v1" min="0" max="0.25" step="0.0005" value="0.01"><span class="val" id="v1V"></span></div>
+    <div class="row"><label>law λ₂</label><select id="law2"></select></div>
+    <div class="row"><label>mean <span class="k">μ₂</span></label><input type="range" id="mu2" min="0.1" max="2.0" step="0.01" value="0.45"><span class="val" id="mu2V"></span></div>
+    <div class="row"><label>var <span class="k">v₂</span></label><input type="range" id="v2" min="0" max="0.25" step="0.0005" value="0.005"><span class="val" id="v2V"></span></div>
+  </div>
+
+  <div class="card">
+    <h3>Eigenvector misalignment</h3>
+    <div class="row"><label>angle <span class="k">φ</span></label>
+      <input type="range" id="phi" min="0" max="1.5708" step="0.01" value="0.35"><span class="val" id="phiV"></span></div>
+    <div class="note-sm">\(\theta_t\sim\mathrm{Unif}[-\phi,\phi]\). \(\phi=0\) ⇒ commuting. Large \(\phi\) ⇒ non-commutative products.</div>
+  </div>
+
+  <div class="card">
+    <h3>Self-stabilization (lab frame)</h3>
+    <div class="row"><label>quartic <span class="k">c₄</span></label><input type="range" id="c4" min="-2" max="1" step="0.01" value="-0.35"><span class="val" id="c4V"></span></div>
+    <div class="row"><label>sextic <span class="k">c₆</span></label><input type="range" id="c6" min="0" max="30" step="0.1" value="4.0"><span class="val" id="c6V"></span></div>
+    <div class="row"><label>noise <span class="k">σ</span></label><input type="range" id="sig" min="0" max="0.15" step="0.002" value="0.02"><span class="val" id="sigV"></span></div>
+    <div class="row"><label>drift clip</label><input type="range" id="clip" min="0.5" max="8" step="0.1" value="2.5"><span class="val" id="clipV"></span></div>
+    <div class="note-sm">Milder than the commutative GIF. Collapse to 0 → more negative \(c_4\) or larger η. Escapes → raise \(c_6\).</div>
+  </div>
+
+  <div class="card">
+    <h3>Simulation</h3>
+    <div class="grid2">
+      <div class="row"><label style="flex-basis:64px">particles</label><input type="number" id="Np" value="3000" min="200" max="20000" step="200" style="width:74px"></div>
+      <div class="row"><label style="flex-basis:64px">steps T</label><input type="number" id="Tn" value="2500" min="400" max="20000" step="100" style="width:74px"></div>
+      <div class="row"><label style="flex-basis:64px">burn-in</label><input type="number" id="Bn" value="1200" min="0" max="19000" step="100" style="width:74px"></div>
+      <div class="row"><label style="flex-basis:64px">seed</label><input type="number" id="seed" value="7" min="0" step="1" style="width:74px"></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:9px;flex-wrap:wrap">
+      <button class="primary" id="runBtn">Run</button>
+      <button id="reseedBtn">re-seed &amp; run</button>
+      <button id="prodBtn">product vs k</button>
+    </div>
+    <div class="statusline" id="status"></div>
+  </div>
+</div>
+
+<div class="main">
+  <div class="readouts">
+    <div class="card ro">
+      <h3>Linear cocycle · product</h3>
+      <table>
+        <tr><td>2/μ₁ (classical)</td><td id="ro2m"></td></tr>
+        <tr><td>χ̂ linear (top Lyapunov)</td><td id="roChi"></td></tr>
+        <tr><td>‖M₄‖₂ mean</td><td id="roMk"></td></tr>
+        <tr><td>P(‖M₄‖₂ &gt; 1)</td><td id="roMkP"></td></tr>
+        <tr><td>φ (rad / deg)</td><td id="roPhi"></td></tr>
+      </table>
+      <div style="margin-top:7px"><span class="badge" id="regLin">—</span></div>
+    </div>
+    <div class="card ro">
+      <h3>Nonlinear occupancy · fixed frame</h3>
+      <table>
+        <tr><td>median ‖x‖</td><td id="roMedR"></td></tr>
+        <tr><td>mean log₁₀‖x‖</td><td id="roLogR"></td></tr>
+        <tr><td>modes in p(x₁)</td><td id="roModes"></td></tr>
+        <tr><td>reinjections</td><td id="roEsc"></td></tr>
+        <tr><td>χ̂ joint (w/ ∇L_nl)</td><td id="roChiNl"></td></tr>
+      </table>
+      <div style="margin-top:7px"><span class="badge" id="regOcc">—</span></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Joint law p(x₁, x₂) — fixed lab frame, log-density</h3>
+    <div class="corner">
+      <div class="cell" style="grid-column:1;grid-row:1"><canvas id="cvMx"></canvas><span class="lbl" style="left:8px;top:6px">marginal p(x₁)</span></div>
+      <div class="cell" style="grid-column:2;grid-row:1;display:flex;align-items:center;justify-content:center;padding:8px">
+        <div style="font-family:var(--mono);font-size:10.5px;color:var(--faint);text-align:center">fixed axes<br>not rotating u(H<sub>t</sub>)</div>
+      </div>
+      <div class="cell" style="grid-column:1;grid-row:2;aspect-ratio:1.25"><canvas id="cvJoint"></canvas>
+        <span class="lbl" style="left:8px;bottom:6px">x₁ →</span>
+        <span class="lbl" style="left:6px;top:6px">↑ x₂</span></div>
+      <div class="cell" style="grid-column:2;grid-row:2"><canvas id="cvMy"></canvas><span class="lbl" style="right:8px;top:6px">p(x₂)</span></div>
+    </div>
+    <div class="note-sm" id="rangeNote"></div>
+  </div>
+
+  <div class="plots2">
+    <div class="card"><h3>‖x‖ occupancy (linear)</h3><div class="cellplot"><canvas id="cvR"></canvas></div></div>
+    <div class="card"><h3>log₁₀‖x‖ occupancy</h3><div class="cellplot"><canvas id="cvLogR"></canvas></div></div>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <h3>Product growth — mean ‖M<sub>k</sub>‖₂ vs horizon k</h3>
+    <div class="cellplot" style="height:240px"><canvas id="cvProd"></canvas></div>
+    <div class="note-sm">Gray: φ=0 (commuting). Blue: current φ. Press “product vs k”.</div>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <h3>Sample trajectory — lab coordinates</h3>
+    <div class="plots2" style="margin-top:0">
+      <div class="cellplot"><canvas id="cvT1"></canvas></div>
+      <div class="cellplot"><canvas id="cvT2"></canvas></div>
+    </div>
+  </div>
+
+  <div class="footer">
+    Companion to <a href="sgd-2d-bimodality.html">sgd-2d-bimodality.html</a> (left unchanged).
+    Linear object: \(\prod(I-\eta H_t)\). Self-stab: mild isotropic \(c_4,c_6\) in a fixed frame.
+  </div>
+</div>
+</div>
+</div>
+
+<script>
+"use strict";
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function makeGauss(rnd){let has=false,c=0;return function(){if(has){has=false;return c}
+  let u=0,v=0,s=0;do{u=2*rnd()-1;v=2*rnd()-1;s=u*u+v*v}while(s>=1||s===0);
+  const m=Math.sqrt(-2*Math.log(s)/s);c=v*m;has=true;return u*m}}
+const LAWS=[{id:"gauss",name:"Gaussian"},{id:"uniform",name:"Uniform"},{id:"twopoint",name:"Two-point"},{id:"det",name:"deterministic λ≡μ"}];
+function makeLaw(id,mu,v,rnd,gauss){
+  switch(id){
+    case "gauss":{const sd=Math.sqrt(Math.max(v,0));return()=>Math.max(1e-6,mu+sd*gauss())}
+    case "uniform":{const w=Math.sqrt(3*Math.max(v,0));return()=>Math.max(1e-6,mu+w*(2*rnd()-1))}
+    case "twopoint":{const d=Math.sqrt(Math.max(v,0));return()=>Math.max(1e-6,mu+(rnd()<0.5?-d:d))}
+    default:return()=>mu;
+  }
+}
+function applyIH(x,y,l1,l2,th,eta){
+  const c=Math.cos(th),s=Math.sin(th);
+  const u1=c*x+s*y, u2=-s*x+c*y;
+  const v1=(1-eta*l1)*u1, v2=(1-eta*l2)*u2;
+  return {x:c*v1-s*v2, y:s*v1+c*v2};
+}
+function frobeniusOpNorm2x2(a11,a12,a21,a22){
+  const b11=a11*a11+a21*a21, b12=a11*a12+a21*a22, b22=a12*a12+a22*a22;
+  const tr=b11+b22, det=b11*b22-b12*b12, disc=Math.max(0,tr*tr-4*det);
+  return Math.sqrt(0.5*(tr+Math.sqrt(disc)));
+}
+function matrixIH(l1,l2,th,eta){
+  const c=Math.cos(th),s=Math.sin(th), d1=1-eta*l1, d2=1-eta*l2;
+  const a11=c*c*d1+s*s*d2, a12=c*s*(d1-d2), a22=s*s*d1+c*c*d2;
+  return {a11,a12,a21:a12,a22};
+}
+const $=id=>document.getElementById(id);
+const P={}, S={running:false, snapX:null,snapY:null,nSnap:0, traj1:null,traj2:null, escapes:0, chiLin:NaN, chiNl:NaN, mkMean:NaN, mkP:NaN};
+function readParams(){
+  P.eta=+$("eta").value; P.mu1=+$("mu1").value; P.v1=+$("v1").value;
+  P.mu2=+$("mu2").value; P.v2=+$("v2").value;
+  P.law1=$("law1").value; P.law2=$("law2").value;
+  P.phi=+$("phi").value; P.c4=+$("c4").value; P.c6=+$("c6").value;
+  P.sig=+$("sig").value; P.clip=+$("clip").value;
+  P.N=Math.max(100,+$("Np").value|0); P.T=Math.max(200,+$("Tn").value|0);
+  P.burn=Math.min(+$("Bn").value|0,P.T-50); P.seed=+$("seed").value|0;
+}
+function fmt(x,d=3){return (!isFinite(x))?"—":(+x).toFixed(d)}
+function syncLabels(){
+  $("etaV").textContent=(+$("eta").value).toFixed(3);
+  $("mu1V").textContent=(+$("mu1").value).toFixed(2);
+  $("v1V").textContent=(+$("v1").value).toFixed(4);
+  $("mu2V").textContent=(+$("mu2").value).toFixed(2);
+  $("v2V").textContent=(+$("v2").value).toFixed(4);
+  $("phiV").textContent=(+$("phi").value).toFixed(2)+" / "+((+$("phi").value)*180/Math.PI).toFixed(0)+"°";
+  $("c4V").textContent=(+$("c4").value).toFixed(2);
+  $("c6V").textContent=(+$("c6").value).toFixed(1);
+  $("sigV").textContent=(+$("sig").value).toFixed(3);
+  $("clipV").textContent=(+$("clip").value).toFixed(1);
+  $("ro2m").textContent=fmt(2/(+$("mu1").value));
+  $("roPhi").textContent=fmt(+$("phi").value,2)+" / "+((+$("phi").value)*180/Math.PI).toFixed(0)+"°";
+  drawLadder();
+}
+function drawLadder(){
+  const el=$("ladder"); el.innerHTML="";
+  const mx=+$("eta").max, eta=+$("eta").value, m1=+$("mu1").value, e0=2/m1;
+  const X=e=>Math.min(100,Math.max(0,100*e/mx));
+  for(const[c,a,b]of [["#123c3a",0,e0],["#3a2d14",e0,mx]]){
+    const d=document.createElement("div"); d.className="band";
+    d.style.left=X(a)+"%"; d.style.width=Math.max(0,X(b)-X(a))+"%"; d.style.background=c; el.appendChild(d);
+  }
+  for(const[c,e]of [["#7f92b3",e0],["#fff",eta]]){
+    const t=document.createElement("div"); t.className="tick"; t.style.left=X(e)+"%"; t.style.background=c; el.appendChild(t);
+  }
+}
+function estimateChi(eta,phi,law1,law2,rnd,gauss,steps=4000){
+  let x=gauss(), y=gauss(), n=Math.hypot(x,y); x/=n; y/=n; let acc=0,cnt=0;
+  for(let t=0;t<steps;t++){
+    const o=applyIH(x,y,law1(),law2(),(2*rnd()-1)*phi,eta);
+    const nn=Math.hypot(o.x,o.y);
+    if(!(nn>1e-300)||!isFinite(nn)){x=gauss();y=gauss();n=Math.hypot(x,y);x/=n;y/=n;continue}
+    acc+=Math.log(nn); cnt++; x=o.x/nn; y=o.y/nn;
+  }
+  return cnt?acc/cnt:NaN;
+}
+function estimateMk(eta,phi,law1,law2,rnd,k=4,trials=400){
+  let sum=0, gt=0;
+  for(let t=0;t<trials;t++){
+    let a11=1,a12=0,a21=0,a22=1;
+    for(let j=0;j<k;j++){
+      const M=matrixIH(law1(),law2(),(2*rnd()-1)*phi,eta);
+      const n11=M.a11*a11+M.a12*a21, n12=M.a11*a12+M.a12*a22;
+      const n21=M.a21*a11+M.a22*a21, n22=M.a21*a12+M.a22*a22;
+      a11=n11;a12=n12;a21=n21;a22=n22;
+    }
+    const nrm=frobeniusOpNorm2x2(a11,a12,a21,a22); sum+=nrm; if(nrm>1)gt++;
+  }
+  return {mean:sum/trials, p:gt/trials};
+}
+let runToken=0;
+function runSim(){
+  readParams(); syncLabels();
+  const tok=++runToken;
+  const rnd=mulberry32((P.seed*2654435761)>>>0 || 1), gauss=makeGauss(rnd);
+  const law1=makeLaw(P.law1,P.mu1,P.v1,rnd,gauss);
+  const law2=makeLaw(P.law2,P.mu2,P.v2,rnd,gauss);
+  S.chiLin=estimateChi(P.eta,P.phi,law1,law2,rnd,gauss,3500);
+  const mk=estimateMk(P.eta,P.phi,law1,law2,rnd,4,350);
+  S.mkMean=mk.mean; S.mkP=mk.p;
+  $("roChi").textContent=fmt(S.chiLin,4)+(S.chiLin<0?"  (contracting)":"  (expanding)");
+  $("roMk").textContent=fmt(S.mkMean,3);
+  $("roMkP").textContent=(100*S.mkP).toFixed(0)+"%";
+  const badge=$("regLin");
+  if(S.chiLin<-0.02){badge.textContent="linear χ < 0";badge.className="badge ok"}
+  else if(S.chiLin<0.02){badge.textContent="near linear edge";badge.className="badge warn"}
+  else{badge.textContent="linear χ > 0";badge.className="badge bad"}
+
+  const N=P.N,T=P.T,burn=P.burn,eta=P.eta,phi=P.phi,clip=P.clip,sig=P.sig;
+  const c46=P.c4/6, c6120=P.c6/120;
+  const x=new Float64Array(N), y=new Float64Array(N);
+  for(let i=0;i<N;i++){x[i]=0.25*gauss(); y[i]=0.25*gauss()}
+  const nKeep=Math.min(100,T-burn), thin=Math.max(1,Math.floor((T-burn)/nKeep));
+  const cap=Math.min(500000,N*Math.ceil((T-burn)/thin));
+  S.snapX=new Float32Array(cap); S.snapY=new Float32Array(cap); S.nSnap=0;
+  S.traj1=new Float64Array(T); S.traj2=new Float64Array(T); S.escapes=0;
+  let v1=1,v2=0.2, lt=0, ltn=0, t=0;
+  S.running=true; $("status").textContent="running…";
+  const CH=Math.max(8,Math.floor(22000/N*40));
+  function chunk(){
+    if(tok!==runToken)return;
+    const tEnd=Math.min(T,t+CH);
+    for(;t<tEnd;t++){
+      for(let i=0;i<N;i++){
+        const l1=law1(), l2=law2(), th=(2*rnd()-1)*phi;
+        const xi=x[i], yi=y[i];
+        const lin=applyIH(xi,yi,l1,l2,th,eta);
+        const r2=xi*xi+yi*yi;
+        let fx=eta*(c46*r2+c6120*r2*r2)*xi;
+        let fy=eta*(c46*r2+c6120*r2*r2)*yi;
+        let clipped=false;
+        if(fx>clip){fx=clip;clipped=true} else if(fx<-clip){fx=-clip;clipped=true}
+        if(fy>clip){fy=clip;clipped=true} else if(fy<-clip){fy=-clip;clipped=true}
+        let xn=lin.x-fx+(sig?sig*gauss():0);
+        let yn=lin.y-fy+(sig?sig*gauss():0);
+        if(!isFinite(xn)||!isFinite(yn)||Math.hypot(xn,yn)>25){xn=0.15*gauss(); yn=0.15*gauss(); S.escapes++}
+        if(i===0){
+          S.traj1[t]=xn; S.traj2[t]=yn;
+          if(!clipped){
+            const M=matrixIH(l1,l2,th,eta);
+            const stiff=eta*(c46*r2+c6120*r2*r2);
+            const a11=M.a11-stiff, a12=M.a12, a21=M.a21, a22=M.a22-stiff;
+            const w1=a11*v1+a12*v2, w2=a21*v1+a22*v2, nrm=Math.hypot(w1,w2);
+            if(nrm>1e-300&&isFinite(nrm)){v1=w1/nrm;v2=w2/nrm;if(t>=burn){lt+=Math.log(nrm);ltn++}}
+          }
+        }
+        x[i]=xn; y[i]=yn;
+      }
+      if(t>=burn&&(t-burn)%thin===0){
+        const room=S.snapX.length-S.nSnap, take=Math.min(N,room);
+        for(let i=0;i<take;i++){S.snapX[S.nSnap+i]=x[i];S.snapY[S.nSnap+i]=y[i]}
+        S.nSnap+=take;
+      }
+    }
+    $("status").textContent="running… step "+t+" / "+T;
+    if(t<T) requestAnimationFrame(chunk);
+    else{S.chiNl=ltn>0?lt/ltn:NaN; S.running=false; finish()}
+  }
+  requestAnimationFrame(chunk);
+}
+function percentile(arr,n,q){
+  const stride=Math.max(1,Math.floor(n/80000)), m=Math.floor(n/stride);
+  const b=new Float64Array(m); for(let i=0;i<m;i++) b[i]=arr[i*stride];
+  b.sort(); return b[Math.max(0,Math.min(m-1,Math.floor(q*m)))];
+}
+function histCounts(arr,n,lo,hi,nb){
+  const h=new Float64Array(nb), s=nb/(hi-lo);
+  for(let i=0;i<n;i++){const v=arr[i]; if(v<lo||v>=hi||!isFinite(v))continue; h[(s*(v-lo))|0]++}
+  return h;
+}
+function smooth3(h){const o=new Float64Array(h.length);for(let i=0;i<h.length;i++)o[i]=(h[i-1]||0)*.25+h[i]*.5+(h[i+1]||0)*.25;return o}
+function countModes(h){
+  const s=smooth3(smooth3(h)); const mx=Math.max(...s,1e-12); let n=0;
+  for(let i=2;i<s.length-2;i++) if(s[i]>s[i-1]&&s[i]>=s[i+1]&&s[i]>0.08*mx) n++;
+  return n;
+}
+function sizeCanvas(cv){const r=cv.getBoundingClientRect(),d=devicePixelRatio||1;
+  cv.width=Math.max(2,r.width*d)|0;cv.height=Math.max(2,r.height*d)|0;return d}
+function finish(){
+  const n=S.nSnap; if(n<20){$("status").textContent="no samples";return}
+  const R=new Float64Array(n); let nLog=0, mlog=0;
+  const logR=new Float64Array(n);
+  for(let i=0;i<n;i++){const r=Math.hypot(S.snapX[i],S.snapY[i]); R[i]=r; if(r>1e-12){logR[nLog]=Math.log10(r); mlog+=logR[nLog]; nLog++}}
+  const med=percentile(R,n,0.5); mlog=nLog?mlog/nLog:NaN;
+  $("roMedR").textContent=fmt(med,4); $("roLogR").textContent=fmt(mlog,3);
+  $("roEsc").textContent=S.escapes; $("roChiNl").textContent=fmt(S.chiNl,4);
+  renderCorner();
+  const hx=histCounts(S.snapX,n,percentile(S.snapX,n,0.01),percentile(S.snapX,n,0.99)+1e-9,60);
+  $("roModes").textContent=String(countModes(hx));
+  const occ=$("regOcc");
+  if(S.escapes>0.02*P.N*P.T){occ.textContent="many escapes — raise c₆";occ.className="badge bad"}
+  else if(med<0.05){occ.textContent="near origin (weak lobes)";occ.className="badge warn"}
+  else{occ.textContent="bounded occupancy";occ.className="badge ok"}
+  renderR(); renderLogR(); renderTraj();
+  $("status").textContent="done · "+n.toLocaleString()+" samples · χ_lin="+fmt(S.chiLin,3)+" · med‖x‖="+fmt(med,3);
+}
+function renderCorner(){
+  const n=S.nSnap;
+  const lo1=percentile(S.snapX,n,0.01), hi1=percentile(S.snapX,n,0.99);
+  const lo2=percentile(S.snapY,n,0.01), hi2=percentile(S.snapY,n,0.99);
+  const pad1=0.08*(hi1-lo1+1e-6), pad2=0.08*(hi2-lo2+1e-6);
+  const x0=lo1-pad1,x1=hi1+pad1,y0=lo2-pad2,y1=hi2+pad2;
+  $("rangeNote").textContent="range x₁∈["+fmt(x0)+","+fmt(x1)+"], x₂∈["+fmt(y0)+","+fmt(y1)+"]";
+  const cv=$("cvJoint"), d=sizeCanvas(cv), ctx=cv.getContext("2d");
+  const W=cv.width,H=cv.height, nx=90, ny=70, grid=new Float64Array(nx*ny);
+  const sx=nx/(x1-x0), sy=ny/(y1-y0);
+  for(let i=0;i<n;i++){const ix=(sx*(S.snapX[i]-x0))|0, iy=(sy*(y1-S.snapY[i]))|0;
+    if(ix>=0&&ix<nx&&iy>=0&&iy<ny) grid[iy*nx+ix]++}
+  let mx=0; for(let i=0;i<grid.length;i++) if(grid[i]>mx) mx=grid[i];
+  const img=ctx.createImageData(W,H);
+  for(let py=0;py<H;py++) for(let px=0;px<W;px++){
+    const ix=(px/W*nx)|0, iy=(py/H*ny)|0;
+    const t=mx?Math.log1p(grid[iy*nx+ix])/Math.log1p(mx):0;
+    const r=20+200*t*t, g=30+90*t*(1-t)*4, b=55+170*(1-t)*t*2+40*t;
+    const o=(py*W+px)*4; img.data[o]=r; img.data[o+1]=g; img.data[o+2]=b; img.data[o+3]=255;
+  }
+  ctx.putImageData(img,0,0);
+  ctx.strokeStyle="rgba(255,255,255,.25)"; ctx.lineWidth=1*d;
+  if(x0<0&&x1>0){const px=(0-x0)/(x1-x0)*W; ctx.beginPath();ctx.moveTo(px,0);ctx.lineTo(px,H);ctx.stroke()}
+  if(y0<0&&y1>0){const py=(y1-0)/(y1-y0)*H; ctx.beginPath();ctx.moveTo(0,py);ctx.lineTo(W,py);ctx.stroke()}
+  drawMarginal($("cvMx"), histCounts(S.snapX,n,x0,x1,80), "#6fb3ff", false);
+  drawMarginal($("cvMy"), histCounts(S.snapY,n,y0,y1,80), "#ffb35c", true);
+}
+function drawMarginal(cv,h,color,vertical){
+  const d=sizeCanvas(cv), ctx=cv.getContext("2d"), W=cv.width, H=cv.height;
+  ctx.clearRect(0,0,W,H); const mx=Math.max(...h,1e-12); ctx.fillStyle=color; ctx.globalAlpha=0.85;
+  if(!vertical){const bw=W/h.length; for(let i=0;i<h.length;i++){const hh=h[i]/mx*(H-4*d); ctx.fillRect(i*bw, H-hh, Math.ceil(bw)+1, hh)}}
+  else{const bh=H/h.length; for(let i=0;i<h.length;i++){const ww=h[i]/mx*(W-4*d); ctx.fillRect(0, i*bh, ww, Math.ceil(bh)+1)}}
+  ctx.globalAlpha=1;
+}
+function renderR(){
+  const n=S.nSnap, R=new Float64Array(n);
+  for(let i=0;i<n;i++) R[i]=Math.hypot(S.snapX[i],S.snapY[i]);
+  drawHist($("cvR"), histCounts(R,n,0,percentile(R,n,0.995)+1e-6,50), "#4fd8c4", "‖x‖");
+}
+function renderLogR(){
+  const L=[]; for(let i=0;i<S.nSnap;i++){const r=Math.hypot(S.snapX[i],S.snapY[i]); if(r>1e-12) L.push(Math.log10(r))}
+  const a=new Float64Array(L); if(a.length<10)return;
+  const lo=percentile(a,a.length,0.01), hi=percentile(a,a.length,0.99)+1e-6;
+  drawHist($("cvLogR"), histCounts(a,a.length,lo,hi,50), "#b48cff", "log₁₀‖x‖");
+}
+function drawHist(cv,h,color,xlabel){
+  const d=sizeCanvas(cv), ctx=cv.getContext("2d"), W=cv.width, H=cv.height;
+  ctx.clearRect(0,0,W,H); const mx=Math.max(...h,1e-12), bw=W/h.length;
+  ctx.fillStyle=color;
+  for(let i=0;i<h.length;i++){const hh=h[i]/mx*(H-22*d); ctx.fillRect(i*bw, H-hh-14*d, Math.ceil(bw)+1, hh)}
+  ctx.fillStyle="#5c6d8c"; ctx.font=(11*d)+"px ui-monospace,monospace"; ctx.fillText(xlabel, 8*d, H-4*d);
+}
+function renderTraj(){ drawTraj($("cvT1"), S.traj1, "#6fb3ff", "x₁"); drawTraj($("cvT2"), S.traj2, "#ffb35c", "x₂"); }
+function drawTraj(cv,arr,color,name){
+  if(!arr)return;
+  const d=sizeCanvas(cv), ctx=cv.getContext("2d"), W=cv.width, H=cv.height;
+  ctx.clearRect(0,0,W,H);
+  const T=arr.length, take=Math.min(400,T), off=T-take;
+  let lo=Infinity,hi=-Infinity;
+  for(let i=off;i<T;i++){const v=arr[i]; if(!isFinite(v))continue; if(v<lo)lo=v; if(v>hi)hi=v}
+  if(!isFinite(lo))return;
+  const pad=0.1*(hi-lo+1e-6); lo-=pad; hi+=pad;
+  ctx.strokeStyle="rgba(255,255,255,.15)"; ctx.beginPath();
+  if(lo<0&&hi>0){const y0=(hi-0)/(hi-lo)*H; ctx.moveTo(0,y0);ctx.lineTo(W,y0);ctx.stroke()}
+  ctx.strokeStyle=color; ctx.lineWidth=1.2*d; ctx.beginPath();
+  for(let i=0;i<take;i++){const v=arr[off+i]; if(!isFinite(v))continue;
+    const px=i/(take-1)*W, py=(hi-v)/(hi-lo)*H; if(i===0)ctx.moveTo(px,py); else ctx.lineTo(px,py)}
+  ctx.stroke();
+  for(let i=Math.max(0,take-80);i<take;i++){const v=arr[off+i]; if(!isFinite(v))continue;
+    ctx.fillStyle=(i%2===0)?"#7be0a3":"#ffb35c";
+    ctx.beginPath(); ctx.arc(i/(take-1)*W,(hi-v)/(hi-lo)*H,2.2*d,0,6.3); ctx.fill()}
+  ctx.fillStyle="#5c6d8c"; ctx.font=(11*d)+"px ui-monospace,monospace"; ctx.fillText(name, 8*d, 14*d);
+}
+function runProductCurve(){
+  readParams(); syncLabels();
+  const rnd=mulberry32((P.seed+99)*2654435761>>>0), gauss=makeGauss(rnd);
+  const law1=makeLaw(P.law1,P.mu1,P.v1,rnd,gauss), law2=makeLaw(P.law2,P.mu2,P.v2,rnd,gauss);
+  const Kmax=12, trials=250, mCur=[], mZero=[];
+  for(let k=1;k<=Kmax;k++){
+    let s0=0,s1=0;
+    for(let t=0;t<trials;t++){
+      let a11=1,a12=0,a21=0,a22=1;
+      for(let j=0;j<k;j++){const M=matrixIH(law1(),law2(),(2*rnd()-1)*P.phi,P.eta);
+        const n11=M.a11*a11+M.a12*a21,n12=M.a11*a12+M.a12*a22,n21=M.a21*a11+M.a22*a21,n22=M.a21*a12+M.a22*a22;
+        a11=n11;a12=n12;a21=n21;a22=n22}
+      s1+=frobeniusOpNorm2x2(a11,a12,a21,a22);
+      a11=1;a12=0;a21=0;a22=1;
+      for(let j=0;j<k;j++){const M=matrixIH(law1(),law2(),0,P.eta);
+        const n11=M.a11*a11+M.a12*a21,n12=M.a11*a12+M.a12*a22,n21=M.a21*a11+M.a22*a21,n22=M.a21*a12+M.a22*a22;
+        a11=n11;a12=n12;a21=n21;a22=n22}
+      s0+=frobeniusOpNorm2x2(a11,a12,a21,a22);
+    }
+    mCur.push(s1/trials); mZero.push(s0/trials);
+  }
+  const cv=$("cvProd"), d=sizeCanvas(cv), ctx=cv.getContext("2d"), W=cv.width, H=cv.height;
+  ctx.clearRect(0,0,W,H);
+  const ymax=Math.max(...mCur,...mZero,1.05);
+  const X=i=>(i/(Kmax-1))*(W-50*d)+30*d, Y=v=>(1-v/ymax)*(H-36*d)+12*d;
+  ctx.strokeStyle="rgba(255,255,255,.2)"; ctx.beginPath(); ctx.moveTo(30*d,Y(1)); ctx.lineTo(W-10*d,Y(1)); ctx.stroke();
+  function line(arr,col){ctx.strokeStyle=col; ctx.lineWidth=1.8*d; ctx.beginPath();
+    for(let i=0;i<arr.length;i++){const x=X(i),y=Y(arr[i]); if(i===0)ctx.moveTo(x,y); else ctx.lineTo(x,y)} ctx.stroke();
+    ctx.fillStyle=col; for(let i=0;i<arr.length;i++){ctx.beginPath();ctx.arc(X(i),Y(arr[i]),2.5*d,0,6.3);ctx.fill()}}
+  line(mZero,"#8ea0bf"); line(mCur,"#6fb3ff");
+  ctx.fillStyle="#5c6d8c"; ctx.font=(11*d)+"px ui-monospace,monospace";
+  ctx.fillText("gray: φ=0   blue: current φ   dashed: ‖M‖=1", 30*d, H-8*d);
+  $("status").textContent="product curve ready";
+}
+const PRESETS=[
+  {name:"commuting sanity (φ=0)", set:{phi:0, eta:1.6, mu1:1, v1:0.01, mu2:0.45, v2:0.005, c4:-0.25, c6:5, sig:0.02, law1:"gauss", law2:"gauss"}},
+  {name:"mild misalignment", set:{phi:0.35, eta:1.8, mu1:1, v1:0.01, mu2:0.45, v2:0.005, c4:-0.35, c6:4, sig:0.02, law1:"gauss", law2:"gauss"}},
+  {name:"strong non-commute", set:{phi:1.0, eta:1.9, mu1:1, v1:0.02, mu2:0.4, v2:0.01, c4:-0.3, c6:6, sig:0.025, law1:"gauss", law2:"gauss"}},
+  {name:"past edge · soft lobes", set:{phi:0.4, eta:2.2, mu1:1, v1:0.008, mu2:0.5, v2:0.004, c4:-0.55, c6:8, sig:0.03, law1:"gauss", law2:"gauss"}},
+  {name:"linear only (c₄=c₆=0)", set:{phi:0.4, eta:1.7, mu1:1, v1:0.01, mu2:0.45, v2:0.005, c4:0, c6:0, sig:0.04, law1:"gauss", law2:"gauss"}},
+  {name:"two-point eigenvalues", set:{phi:0.5, eta:1.85, mu1:1, v1:0.04, mu2:0.4, v2:0.02, c4:-0.4, c6:5, sig:0.02, law1:"twopoint", law2:"twopoint"}},
+];
+function applyPreset(p){
+  const s=p.set;
+  $("phi").value=s.phi; $("eta").value=s.eta;
+  $("mu1").value=s.mu1; $("v1").value=s.v1; $("mu2").value=s.mu2; $("v2").value=s.v2;
+  $("c4").value=s.c4; $("c6").value=s.c6; $("sig").value=s.sig;
+  $("law1").value=s.law1; $("law2").value=s.law2;
+  syncLabels(); runSim();
+}
+function fillLaws(){
+  for(const id of ["law1","law2"]){const sel=$(id); sel.innerHTML="";
+    for(const L of LAWS){const o=document.createElement("option");o.value=L.id;o.textContent=L.name;sel.appendChild(o)}}
+}
+function wire(){
+  fillLaws();
+  const chips=$("presetChips");
+  for(const p of PRESETS){const b=document.createElement("button"); b.textContent=p.name; b.onclick=()=>applyPreset(p); chips.appendChild(b)}
+  for(const id of ["eta","mu1","v1","mu2","v2","phi","c4","c6","sig","clip"]) $(id).addEventListener("input", syncLabels);
+  $("runBtn").onclick=()=>runSim();
+  $("reseedBtn").onclick=()=>{ $("seed").value=(+$("seed").value+1)|0; runSim(); };
+  $("prodBtn").onclick=()=>runProductCurve();
+  syncLabels(); applyPreset(PRESETS[1]);
+}
+document.addEventListener("DOMContentLoaded",()=>{
+  wire();
+  if(window.renderMathInElement) renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:true},{left:"\\(",right:"\\)",display:false}]});
+});
+</script>
+</body>
+</html>

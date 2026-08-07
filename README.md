@@ -25,3 +25,12 @@ effective Lyapunov exponents \(\hat\chi,\hat\chi_{\rm eff}\), tangent offset \(\
 fixed point \(-(\beta/\mu_y)\mathbb{E}[z^2]\), predicted lobe centers \(\pm\nu_\star\), phase-plane cloud,
 z/y marginals, and an η-strip. Presets cover the spectral-condition matrix
 \((\eta\mu_z\gtrless 2,\ \eta\mu_y<2,\ v_z,v_y,\beta,c_4\gtrless 0)\).
+
+## Non-commutative matrix cocycle (`sgd-2d-matrix-cocycle.html`)
+
+Companion lab where each step draws
+\(H_t=R(\theta_t)\mathrm{diag}(\lambda_{1,t},\lambda_{2,t})R(\theta_t)^\top\) with random eigenvalues
+and eigenvector angle \(\theta_t\sim\mathrm{Unif}[-\phi,\phi]\). The linear object is the product
+\(\prod_t(I-\eta H_t)\). Plots are in a **fixed lab frame** (\(\|x\|\), \(\log\|x\|\), \(p(x_1,x_2)\)).
+Self-stabilization uses mild isotropic \(c_4,c_6\) (tunable; defaults are softer than the commutative GIF).
+Open locally in a browser; the original `sgd-2d-bimodality.html` is unchanged.
